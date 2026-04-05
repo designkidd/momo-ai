@@ -1,3 +1,39 @@
+/* ── Language redirect ── */
+(() => {
+  const path = location.pathname;
+  const inEn = path.includes('/en/');
+  const page = path.split('/').pop() || 'index.html';
+  const lang = (navigator.language || navigator.userLanguage || '').toLowerCase();
+  const isChinese = lang.startsWith('zh');
+  /* Only redirect if user hasn't manually chosen a language (no ?lang param) */
+  if (location.search.includes('lang=')) return;
+  if (!isChinese && !inEn) {
+    /* System is non-Chinese, but viewing Chinese docs → redirect to en/ */
+    location.replace('en/' + page);
+  } else if (isChinese && inEn) {
+    /* System is Chinese, but viewing English docs → redirect to parent */
+    location.replace('../' + page);
+  }
+})();
+
+/* ── Language switch button ── */
+document.addEventListener('DOMContentLoaded', () => {
+  const nav = document.querySelector('.site-header nav');
+  if (!nav) return;
+  const path = location.pathname;
+  const inEn = path.includes('/en/');
+  const page = path.split('/').pop() || 'index.html';
+  const btn = document.createElement('button');
+  btn.className = 'lang-switch';
+  btn.textContent = inEn ? '中文' : 'EN';
+  btn.title = inEn ? '切換至中文' : 'Switch to English';
+  btn.addEventListener('click', () => {
+    const target = inEn ? '../' + page + '?lang=zh' : 'en/' + page + '?lang=en';
+    location.href = target;
+  });
+  nav.insertBefore(btn, nav.querySelector('.menu-toggle'));
+});
+
 /* ── Mobile menu ── */
 document.addEventListener('DOMContentLoaded', () => {
   const toggle = document.querySelector('.menu-toggle');

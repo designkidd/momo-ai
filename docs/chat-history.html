@@ -56,13 +56,23 @@
 <h2>功能</h2>
 <ul>
   <li><strong>瀏覽對話</strong>：依時間排序瀏覽所有已儲存對話。</li>
+  <li><strong>重新命名</strong>：點擊對話標題可重新命名。</li>
   <li><strong>選擇與批量操作</strong>：支援全選與批量刪除。</li>
-  <li><strong>匯出</strong>：將對話內容匯出備份。</li>
+  <li><strong>匯出</strong>：將對話內容匯出為 JSON 備份。</li>
+  <li><strong>匯入</strong>：從 JSON 檔案匯入對話記錄。</li>
   <li><strong>刪除</strong>：刪除單則或所選對話。</li>
 </ul>
 
 <h2>儲存機制</h2>
-<p>對話資料儲存在 <code>chrome.storage.local</code>，不會透過 Chrome 同步至其他裝置；系統會自動清理過舊對話以節省空間。</p>
+<p>對話資料儲存在 <code>chrome.storage.local</code>，不會透過 Chrome 同步至其他裝置。</p>
+
+<h2>自動清理</h2>
+<p>系統會自動清理符合以下條件的對話以節省空間：</p>
+<ul>
+  <li>對話總數超過 200 筆</li>
+  <li>對話建立超過 90 天</li>
+  <li>對話僅包含 1 則或更少的訊息</li>
+</ul>
 <div class="callout info"><strong>ℹ️ 空白對話</strong>空白對話不會被保存。</div>
 
 <nav class="page-nav">

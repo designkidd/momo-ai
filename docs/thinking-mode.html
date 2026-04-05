@@ -52,24 +52,24 @@
 <p>讓 AI 在產生最終回覆前先進行深度推理，並可展示完整的思考過程。</p>
 
 <h2>啟用方式</h2>
-<p>點擊 💡 燈泡圖示即可開啟或關閉全域思考模式。</p>
+<p>思考模式採用<strong>逐模型控制</strong>，切換模型時會自動顯示對應的思考模式狀態。</p>
 
 <h2>三種模型狀態</h2>
 
 <h3>可切換（Toggleable）</h3>
-<p>例如：Qwen 的 <code>enable_thinking</code>、Gemini 的 <code>thinkingConfig</code>、Claude 的 thinking budget、Kimi／Moonshot、MiniMax 等——可依燈泡開關切換。</p>
+<p>例如：Qwen 的 <code>enable_thinking</code>、Gemini 的 <code>thinkingConfig</code>、Claude 的 thinking budget、Kimi／Moonshot、MiniMax 等——可手動開關。</p>
 
 <h3>始終開啟（Always On）</h3>
-<p>例如：DeepSeek Reasoner、OpenAI o1／o3——思考為內建行為，燈泡按鈕會呈現鎖定狀態。</p>
+<p>例如：DeepSeek Reasoner、OpenAI o1／o3——思考為內建行為，無法關閉。</p>
 
 <h3>不支援（Unsupported）</h3>
-<p>例如：GPT-4o／GPT-4o-mini、大部分 Ollama／LM Studio 模型——燈泡按鈕會顯示為灰色不可用。</p>
+<p>例如：GPT-5.4 系列、大部分 Ollama／LM Studio 模型——思考模式不可用。</p>
 
 <h2>思考過程顯示</h2>
 <p>思考內容以 <code>think</code> 區塊呈現，可摺疊，並與一般回覆在視覺上區隔。</p>
 
-<h2>全域 vs 逐模型</h2>
-<p>可使用<strong>全域燈泡按鈕</strong>統一控制，或在各模型設定中以<strong>自訂 JSON</strong> 單獨覆寫；兩者為 <strong>OR</strong> 關係，依實際串接方式擇一或搭配使用。</p>
+<h2>自訂覆寫</h2>
+<p>可在各模型設定中以<strong>自訂 JSON</strong> 單獨覆寫思考模式參數。</p>
 
 <nav class="page-nav">
   <a href="image-upload.html"><span class="label">上一頁</span><span class="title">← 圖片上傳</span></a>
