@@ -4,6 +4,8 @@
 
 **Friendly AI Chat Sidebar** — A Chrome extension that lets you chat with multiple AI models on any webpage.
 
+![Momo AI Screenshot](docs/momo-preview.png)
+
 ## Features
 
 - 11+ AI providers (OpenAI, Google Gemini, DeepSeek, Qwen, Ollama, LM Studio, OpenRouter, NVIDIA, MiniMax, Moonshot, OpenClaw, Custom)

@@ -4,6 +4,8 @@
 
 **友善的 AI 聊天側邊欄** — 在任何網頁中與多種 AI 模型即時對話的 Chrome 擴充功能。
 
+![Momo AI 截圖](docs/momo-preview.png)
+
 ## 功能
 
 - 支援 11+ AI 供應商（OpenAI、Google Gemini、DeepSeek、Qwen、Ollama、LM Studio、OpenRouter、NVIDIA、MiniMax、Moonshot、OpenClaw、自訂）
