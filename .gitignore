@@ -1,0 +1,32 @@
+# macOS
+.DS_Store
+._*
+
+# IDE
+.cursor/
+.vscode/
+.idea/
+*.swp
+
+# Archives
+*.zip
+
+# Design source files
+*.psd
+
+# Videos
+*.mp4
+
+# Research / reference extensions
+research/
+
+# Backups (use git history instead)
+backup/
+
+# Icon source / animation assets
+icon/
+animation/
+model sets/
+
+# Claude settings
+.claude/
