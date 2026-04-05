@@ -341,11 +341,21 @@ function loadProviderConfig(providerId){
       nvidia: 'https://build.nvidia.com/settings/api-keys',
       minimax: 'https://platform.minimax.io/user-center/basic-information/interface-key',
       openrouter: 'https://openrouter.ai/keys',
-      ollama: 'https://ollama.com/settings/keys'
+      ollama: 'https://ollama.com/settings/keys',
+      groq: 'https://console.groq.com/keys'
     };
     
+    // Provider-specific extra hints
+    const providerExtraHints = {
+      groq: 'Free tier: ~30 req/min, up to 14,400 req/day. No credit card required. Supports Llama, DeepSeek-R1 & more. Ultra-fast inference. <a href="https://console.groq.com/docs/rate-limits" target="_blank" style="color:var(--accent);text-decoration:underline;">Rate limits →</a>'
+    };
+
     if(apiKeyLinks[providerId]){
-      els.providerBaseUrlHint.innerHTML = `${hintLabel}<br>${apiKeyLabel} <a href="${apiKeyLinks[providerId]}" target="_blank" style="color:var(--accent);text-decoration:underline;">${apiKeyLinks[providerId]}</a>`;
+      let hint = `${hintLabel}<br>${apiKeyLabel} <a href="${apiKeyLinks[providerId]}" target="_blank" style="color:var(--accent);text-decoration:underline;">${apiKeyLinks[providerId]}</a>`;
+      if(providerExtraHints[providerId]){
+        hint += `<br><span style="opacity:0.75;font-size:0.85em;">${providerExtraHints[providerId]}</span>`;
+      }
+      els.providerBaseUrlHint.innerHTML = hint;
     } else {
       els.providerBaseUrlHint.textContent = hintLabel;
     }
@@ -1791,21 +1801,23 @@ function collectModels(){
 function updateMergedModels(){
   // Collect ALL enabled models from ALL providers for sidepanel
   const allEnabledModels = [];
-  const modelNames = new Set(); // 用來去重
+  const uidSet = new Set(); // 用 provider::name 去重
   
   Object.keys(providersData).forEach(providerId => {
     const provider = providersData[providerId];
     if(provider && provider.models){
       provider.models.forEach(model => {
-        if(model.enabled && model.name && !modelNames.has(model.name)){
+        const uid = providerId + '::' + model.name;
+        if(model.enabled && model.name && !uidSet.has(uid)){
           allEnabledModels.push({
             name: model.name,
+            uid,
             enabled: true,
             provider: providerId,
             ...(model.thinkingParams ? { thinkingParams: model.thinkingParams } : {}),
             ...(model.prefixPrompt ? { prefixPrompt: model.prefixPrompt } : {})
           });
-          modelNames.add(model.name);
+          uidSet.add(uid);
         }
       });
     }

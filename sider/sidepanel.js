@@ -64,16 +64,21 @@ let currentStreamingMessageTs = null;
 
 /* ── OpenClawGateway, extractOpenClawText now in js/openclaw.js ── */
 
+/* ── Model UID helpers ── */
+// uid = "provider::modelName", e.g. "google::gemini-3.1-flash-lite-preview"
+function modelUid(m){ return (m.uid) || ((m.provider||'')+'::'+( m.name||m.id||m.model||'')); }
+function findModelByUid(list, uid){ return Array.isArray(list) ? list.find(m => modelUid(m) === uid) : null; }
+function modelNameFromUid(uid){ return uid ? uid.replace(/^[^:]*::/, '') : ''; }
+
 /* OpenClaw：透過 WebSocket 聊天（完全對齊 Copilot） */
 async function streamOpenClawChat(assistantTs){
-  const model = els.modelSelector.value;
+  const selectedUid = els.modelSelector.value;
+  const model = modelNameFromUid(selectedUid);
   const { customModels, providerConfigs } = await chrome.storage.local.get(['customModels','providerConfigs']);
 
   let modelProvider = null;
-  if(Array.isArray(customModels)){
-    const md = customModels.find(m => m.name === model);
-    modelProvider = md?.provider;
-  }
+  const md = findModelByUid(customModels, selectedUid);
+  modelProvider = md?.provider;
   const cfg = providerConfigs?.[modelProvider];
   if(!cfg?.isOpenClaw) throw new Error('Not an OpenClaw provider');
 
@@ -1102,19 +1107,32 @@ async function loadModels() {
       return;
     }
     
+    // 確保每個模型都有 uid
+    enabled.forEach(m=>{
+      if(!m.uid) m.uid = modelUid(m);
+    });
+    
     enabled.forEach(m=>{
       const name=m.name||m.id||m.model;
       if(!name) return;
       const o=document.createElement('option');
-      o.value=name;
+      o.value=m.uid;
       o.textContent=name;
       sel.appendChild(o);
     });
     
-    if(model && enabled.some(m=>(m.name||m.id||m.model)===model)){
-      sel.value=model;
+    // model from sync may be old-format (plain name) or new-format (uid)
+    const savedModel = model || '';
+    const matchByUid = enabled.find(m => m.uid === savedModel);
+    const matchByName = !matchByUid && enabled.find(m => (m.name||m.id||m.model) === savedModel);
+    const matched = matchByUid || matchByName;
+    
+    if(matched){
+      sel.value = matched.uid;
+      // Migrate old format to uid
+      if(!matchByUid && matchByName) await chrome.storage.sync.set({ model: matched.uid });
     } else {
-      sel.value=enabled[0].name || enabled[0].id || enabled[0].model;
+      sel.value = enabled[0].uid;
       await chrome.storage.sync.set({ model: sel.value });
     }
     // 構建帶圖標的自定義下拉選單
@@ -1154,16 +1172,32 @@ function buildModelDropdown(enabledModels){
   listEl.className = 'cm-dropdown-list';
   dd.appendChild(listEl);
 
-  // 選中的值
+  // 選中的值 (uid)
   const currentVal = els.modelSelector.value;
 
-  function findProvider(name){
-    const m = enabledModels.find(x => (x.name||x.id||x.model) === name);
-    return m?.provider || '';
+  // 偵測同名模型（不同 provider），需要加 provider 標籤
+  const nameCounts = {};
+  enabledModels.forEach(m => {
+    const n = m.name || m.id || m.model;
+    nameCounts[n] = (nameCounts[n] || 0) + 1;
+  });
+
+  function findByUid(uid){
+    return enabledModels.find(x => modelUid(x) === uid);
   }
 
-  function renderBtn(modelName){
-    const provider = findProvider(modelName);
+  function displayName(m){
+    const name = m.name || m.id || m.model;
+    if(nameCounts[name] > 1){
+      const pName = PROVIDER_DEFAULTS?.[m.provider]?.name || m.provider || '';
+      return name + ' (' + pName + ')';
+    }
+    return name;
+  }
+
+  function renderBtn(uid){
+    const m = findByUid(uid);
+    const provider = m?.provider || '';
     const iconUrl = getProviderIconUrl(provider);
     btn.innerHTML = '';
     if(iconUrl){
@@ -1173,7 +1207,6 @@ function buildModelDropdown(enabledModels){
       img.alt = '';
       btn.appendChild(img);
     } else {
-      // 閃電圖標作為通用回退
       const fallback = document.createElement('span');
       fallback.className = 'cm-icon-fallback';
       fallback.innerHTML = '⚡';
@@ -1181,7 +1214,7 @@ function buildModelDropdown(enabledModels){
     }
     const span = document.createElement('span');
     span.className = 'cm-label';
-    span.textContent = modelName || sp_t('noModels');
+    span.textContent = (m ? (m.name||m.id||m.model) : modelNameFromUid(uid)) || sp_t('noModels');
     btn.appendChild(span);
   }
 
@@ -1189,10 +1222,11 @@ function buildModelDropdown(enabledModels){
     listEl.innerHTML = '';
     enabledModels.forEach(m => {
       const name = m.name || m.id || m.model;
+      const uid = modelUid(m);
       if(!name) return;
       const item = document.createElement('div');
-      item.className = 'cm-dropdown-item' + (name === els.modelSelector.value ? ' selected' : '');
-      item.dataset.value = name;
+      item.className = 'cm-dropdown-item' + (uid === els.modelSelector.value ? ' selected' : '');
+      item.dataset.value = uid;
 
       const iconUrl = getProviderIconUrl(m.provider || '');
       if(iconUrl){
@@ -1209,10 +1243,10 @@ function buildModelDropdown(enabledModels){
       }
       const span = document.createElement('span');
       span.className = 'cm-item-label';
-      span.textContent = name;
+      span.textContent = displayName(m);
       item.appendChild(span);
 
-      if(name === els.modelSelector.value){
+      if(uid === els.modelSelector.value){
         const check = document.createElement('span');
         check.className = 'cm-check';
         check.textContent = '✓';
@@ -1220,9 +1254,9 @@ function buildModelDropdown(enabledModels){
       }
 
       item.addEventListener('click', () => {
-        els.modelSelector.value = name;
+        els.modelSelector.value = uid;
         els.modelSelector.dispatchEvent(new Event('change', { bubbles: true }));
-        renderBtn(name);
+        renderBtn(uid);
         renderList();
         closeDropdown();
       });
@@ -1255,13 +1289,11 @@ function buildModelDropdown(enabledModels){
 /* ================= OpenClaw Prompt Visibility ================= */
 async function updateOpenClawPromptVisibility(){
   try{
-    const model = els.modelSelector.value || '';
+    const selectedUid = els.modelSelector.value || '';
     const { customModels } = await chrome.storage.local.get('customModels');
     let isOpenClaw = false;
-    if(Array.isArray(customModels)){
-      const md = customModels.find(m => (m.name||m.id||m.model) === model);
-      isOpenClaw = md?.provider === 'openclaw';
-    }
+    const md = findModelByUid(customModels, selectedUid);
+    isOpenClaw = md?.provider === 'openclaw';
     // 禁用提示詞選擇器（灰色不可操作），但不隱藏
     const promptWrap = els.promptSelector?.closest('.select-wrap.prompt-select');
     if(promptWrap){
@@ -1313,12 +1345,10 @@ async function updateOpenClawPromptVisibility(){
 /* 檢查當前模型是否為 OpenClaw */
 async function isCurrentModelOpenClaw(){
   try{
-    const model = els.modelSelector.value || '';
+    const selectedUid = els.modelSelector.value || '';
     const { customModels } = await chrome.storage.local.get('customModels');
-    if(Array.isArray(customModels)){
-      const md = customModels.find(m => (m.name||m.id||m.model) === model);
-      return md?.provider === 'openclaw';
-    }
+    const md = findModelByUid(customModels, selectedUid);
+    return md?.provider === 'openclaw';
   }catch(e){}
   return false;
 }
@@ -1332,8 +1362,8 @@ async function loadAndShowOpenClawHistory(){
 
   const { customModels, providerConfigs } = await chrome.storage.local.get(['customModels','providerConfigs']);
   if(isStale()) return;
-  const model = els.modelSelector.value || '';
-  const md = Array.isArray(customModels) ? customModels.find(m => (m.name||m.id||m.model) === model) : null;
+  const selectedUid = els.modelSelector.value || '';
+  const md = findModelByUid(customModels, selectedUid);
   const modelProvider = md?.provider || '';
   const cfg = providerConfigs?.[modelProvider];
   if(!cfg?.isOpenClaw) return;
@@ -5422,18 +5452,19 @@ async function streamChatCompletion(assistantTs){
   console.log('[SP] streamChatCompletion() called');
   
   // Get current model and find its provider
-  const model = els.modelSelector.value || 'gpt-3.5-turbo';
+  const selectedUid = els.modelSelector.value || '';
+  const model = modelNameFromUid(selectedUid) || 'gpt-3.5-turbo';
   const { customModels, providerConfigs } = await chrome.storage.local.get(['customModels', 'providerConfigs']);
   
   // Find which provider this model belongs to
   let modelProvider = null;
   let modelThinkingParams = undefined;
   let modelPrefixPrompt = '';
-  if(Array.isArray(customModels)){
-    const modelData = customModels.find(m => m.name === model);
-    modelProvider = modelData?.provider;
-    modelThinkingParams = modelData?.thinkingParams;
-    modelPrefixPrompt = modelData?.prefixPrompt || '';
+  const modelData = findModelByUid(customModels, selectedUid);
+  if(modelData){
+    modelProvider = modelData.provider;
+    modelThinkingParams = modelData.thinkingParams;
+    modelPrefixPrompt = modelData.prefixPrompt || '';
   }
 
   // ── OpenClaw：走 WebSocket 而非 HTTP ──

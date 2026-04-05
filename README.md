@@ -1,18 +1,18 @@
-# 🐹 Momo AI
+# 🐹 Momo AI Bud
 
 [繁體中文](README.zh-TW.md) | English
 
-**Friendly AI Chat Sidebar** — A Chrome extension that lets you chat with multiple AI models on any webpage.
+**Friendly AI Chat Sidebar** — A Chrome extension that lets you chat with multiple AI models on any webpage. Supports free API providers — no credit card required.
 
-![Momo AI Screenshot](docs/momo-proview_v3.png)
+![Momo AI Screenshot](docs/momo-preview.png)
 
 ## Features
 
-- 11+ AI providers (OpenAI, Google Gemini, DeepSeek, Qwen, Ollama, LM Studio, OpenRouter, NVIDIA, MiniMax, Moonshot, OpenClaw, Custom)
+- 11+ AI providers (OpenAI, Google Gemini, DeepSeek, Qwen, Ollama, LM Studio, OpenRouter, NVIDIA, Groq, MiniMax, Moonshot, OpenClaw, Custom)
 - Sidebar chat interface
 - Floating ball for quick access
 - Web page capture & reference
-- Web search (Google, DuckDuckGo, Brave, Tavily, SearXNG)
+- Web search (DuckDuckGo, Brave, Tavily)
 - Image upload & vision
 - Thinking mode (Thinking / Reasoning)
 - Text-to-Speech (TTS)
@@ -21,11 +21,24 @@
 - Multi-language UI (繁中 / 簡中 / English)
 - Keyboard shortcuts
 
+## 🆓 Free API Providers
+
+No credit card needed. Get started in minutes:
+
+| Provider | Free Models | Rate Limit | Get API Key |
+|----------|------------|------------|-------------|
+| **Ollama Cloud** | minimax-m2.7, kimi-k2.5 and more | 1 concurrent task, GPU quota resets every 5h / 7d | [ollama.com/settings/keys](https://ollama.com/settings/keys) |
+| **Google AI Studio** | gemini-3-flash-preview, gemini-3.1-flash-lite-preview | 1,500 RPD / 15 RPM, up to 1M token context | [aistudio.google.com/api-keys](https://aistudio.google.com/api-keys) |
+| **Groq** | Llama 3.3, DeepSeek-R1 | ~30 RPM / 14,400 RPD, blazing fast inference | [console.groq.com/keys](https://console.groq.com/keys) |
+| **NVIDIA NIM** | Models marked "Free Endpoint" | ~40 RPM, no total limit | [build.nvidia.com/settings/api-keys](https://build.nvidia.com/settings/api-keys) |
+
+> **Base URLs**: Ollama Cloud `https://ollama.com/v1` · Google AI `https://generativelanguage.googleapis.com/v1beta` · Groq `https://api.groq.com/openai/v1` · NVIDIA `https://integrate.api.nvidia.com/v1`
+
 ## Installation
 
 ### From Release
 
-1. Download the latest `momo-ai-*-chrome.zip` from [Releases](https://github.com/designkidd/momo-ai/releases)
+1. Download the latest `momo-ai-*-chrome.zip` from [Releases](https://github.com/designkidd/momo-bud/releases)
 2. Unzip the file
 3. Open Chrome, go to `chrome://extensions/`
 4. Enable "Developer mode"
@@ -38,6 +51,10 @@
 2. Open Chrome, go to `chrome://extensions/`
 3. Enable "Developer mode"
 4. Click "Load unpacked" and select the `sider/` folder
+
+## Documentation
+
+📖 [designkidd.github.io](https://designkidd.github.io)
 
 ## Project Structure
 

@@ -56,6 +56,7 @@ const PROVIDER_ICONS = {
   deepseek: 'assets/icons/deepseek.svg',
   google:   'assets/icons/google.svg',
   ollama:   'assets/icons/ollama.svg',
+  groq:       'assets/icons/groq.svg',
   lmstudio: 'assets/icons/lmstudio.svg',
   openclaw: 'assets/icons/openclaw.svg',
   nvidia:     'assets/icons/nvidia.svg',
@@ -80,7 +81,12 @@ const PROVIDER_DEFAULTS = {
   google: {
     id: 'google', name: 'Google AI',
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
-    models: ['gemini-2.5-flash', 'gemini-2.5-pro']
+    models: ['gemini-3.1-flash-lite-preview', 'gemini-3-flash-preview']
+  },
+  groq: {
+    id: 'groq', name: 'Groq',
+    baseUrl: 'https://api.groq.com/openai/v1',
+    models: ['openai/gpt-oss-120b', 'meta-llama/llama-4-scout-17b-16e-instruct']
   },
   lmstudio: {
     id: 'lmstudio', name: 'LM Studio',

@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2.21.0] - 2026-04-06
+### Added — Groq Provider
+- 新增 Groq AI 供應商，預設模型 `openai/gpt-oss-120b` 和 `meta-llama/llama-4-scout-17b-16e-instruct`
+- API Key 申請連結指向 https://console.groq.com/keys
+- 設定頁顯示 Groq 免費方案說明：無須綁卡、每分鐘約 30 次請求、每日最高 14,400 次、全球頂尖推理速度
+- `host_permissions` 加入 `api.groq.com`
+
+---
+
+## [2.20.1] - 2026-04-06
+### Changed
+- Google AI 預設模型更新為 `gemini-3.1-flash-lite-preview` 和 `gemini-3-flash-preview`
+
+---
+
+## [2.20.0] - 2026-04-06
+### Fixed — 同名模型跨 Provider 共存
+- 模型唯一識別改用 `provider::name` 組合 uid，不同 Provider 下的同名模型可同時啟用並出現在 sidebar 下拉選單
+- 同名模型在下拉選單中自動加上 Provider 名稱標籤（如 `gemini-3.1-flash (Google AI)` / `gemini-3.1-flash (OpenRouter)`）
+- 向下相容：舊格式的 model 選擇會自動遷移為新 uid 格式
+
+---
+
 ## [2.19.5] - 2026-04-06
 ### Fixed — 測試連線不再彈出權限請求
 - 將所有內建 AI Provider 的 API 域名加入 `manifest.json` 的 `host_permissions`，包括 DeepSeek、Google AI、MiniMax、Moonshot、NVIDIA、OpenRouter、Qwen

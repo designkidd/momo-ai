@@ -2,7 +2,7 @@
 {
   "name": "Momo:AI",
   "description": "Friendly AI Chat Sidebar",
-  "version": "2.19.5",
+  "version": "2.21.0",
   "manifest_version": 3,
   "icons": {
     "16": "icons/icon16.png",
@@ -23,6 +23,7 @@
     "https://api.openai.com/*",
     "https://api.deepseek.com/*",
     "https://generativelanguage.googleapis.com/*",
+    "https://api.groq.com/*",
     "https://api.minimaxi.chat/*",
     "https://api.moonshot.cn/*",
     "https://integrate.api.nvidia.com/*",

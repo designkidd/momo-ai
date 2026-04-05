@@ -1,18 +1,18 @@
-# 🐹 Momo AI
+# 🐹 Momo AI Bud
 
 繁體中文 | [English](README.md)
 
-**友善的 AI 聊天側邊欄** — 在任何網頁中與多種 AI 模型即時對話的 Chrome 擴充功能。
+**友善的 AI 聊天側邊欄** — 在任何網頁中與多種 AI 模型即時對話的 Chrome 擴充功能。支援免費 API 供應商，無需綁定信用卡。
 
 ![Momo AI 截圖](docs/momo-preview.png)
 
 ## 功能
 
-- 支援 11+ AI 供應商（OpenAI、Google Gemini、DeepSeek、Qwen、Ollama、LM Studio、OpenRouter、NVIDIA、MiniMax、Moonshot、OpenClaw、自訂）
+- 支援 11+ AI 供應商（OpenAI、Google Gemini、DeepSeek、Qwen、Ollama、LM Studio、OpenRouter、NVIDIA、Groq、MiniMax、Moonshot、OpenClaw、自訂）
 - 側邊欄聊天介面
 - 浮球快速啟動
 - 網頁內容擷取與引用
-- 聯網搜尋（Google、DuckDuckGo、Brave、Tavily、SearXNG）
+- 聯網搜尋（DuckDuckGo、Brave、Tavily）
 - 圖片上傳與理解
 - 思考模式（Thinking / Reasoning）
 - 語音朗讀（TTS）
@@ -21,11 +21,24 @@
 - 多語言介面（繁中 / 簡中 / English）
 - 快捷鍵支援
 
+## 🆓 免費 API 供應商
+
+無需信用卡，幾分鐘即可開始使用：
+
+| 供應商 | 免費模型 | 頻率限制 | 申請 API Key |
+|--------|---------|---------|-------------|
+| **Ollama Cloud** | minimax-m2.7、kimi-k2.5 等 | 單一並行任務，GPU 配額每 5 小時 / 7 天重置 | [ollama.com/settings/keys](https://ollama.com/settings/keys) |
+| **Google AI Studio** | gemini-3-flash-preview、gemini-3.1-flash-lite-preview | 每日 1,500 次 / 每分鐘 15 次，最高 100 萬 Token 上下文 | [aistudio.google.com/api-keys](https://aistudio.google.com/api-keys) |
+| **Groq** | Llama 3.3、DeepSeek-R1 | 每分鐘 ~30 次 / 每日 14,400 次，全球頂尖推理速度 | [console.groq.com/keys](https://console.groq.com/keys) |
+| **NVIDIA NIM** | 標註「Free Endpoint」的模型 | 每分鐘 ~40 次，無總量限制 | [build.nvidia.com/settings/api-keys](https://build.nvidia.com/settings/api-keys) |
+
+> **API 端點**：Ollama Cloud `https://ollama.com/v1` · Google AI `https://generativelanguage.googleapis.com/v1beta` · Groq `https://api.groq.com/openai/v1` · NVIDIA `https://integrate.api.nvidia.com/v1`
+
 ## 安裝
 
 ### 從 Release 下載
 
-1. 到 [Releases](https://github.com/designkidd/momo-ai/releases) 下載最新的 `momo-ai-*-chrome.zip`
+1. 到 [Releases](https://github.com/designkidd/momo-bud/releases) 下載最新的 `momo-ai-*-chrome.zip`
 2. 解壓縮
 3. 開啟 Chrome，前往 `chrome://extensions/`
 4. 開啟「開發人員模式」
@@ -38,6 +51,10 @@
 2. 開啟 Chrome，前往 `chrome://extensions/`
 3. 開啟「開發人員模式」
 4. 點擊「載入未封裝項目」，選擇 `sider/` 資料夾
+
+## 說明文件
+
+📖 [designkidd.github.io](https://designkidd.github.io)
 
 ## 專案結構
 
