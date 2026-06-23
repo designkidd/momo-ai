@@ -50,6 +50,108 @@
 <main class="main-content">
 <h1>Changelog</h1>
 
+<h2>v2.22.12 (2026-06-08)</h2>
+<p><strong>TTS semantic symbols:</strong> <code>&amp;</code>, <code>%</code>, <code>+</code>, <code>=</code>, <code>×</code>, <code>&lt;</code>, <code>&gt;</code>, <code>@</code>, and common currency symbols are converted to natural words before speech; other punctuation and decorative symbols are used only for pauses, not spoken.</p>
+
+<h2>v2.22.11 (2026-06-08)</h2>
+<p><strong>TTS reading rhythm pauses restored:</strong> Fixed weaker pauses after symbol stripping. Punctuation still drives segmentation and pause timing, but spoken text excludes punctuation and symbols.</p>
+
+<h2>v2.22.10 (2026-06-08)</h2>
+<p><strong>Image reply auto-scroll:</strong> When stickers or Markdown images load and change message height, auto-follow mode scrolls to the bottom again so the last text is not hidden behind the input area.</p>
+
+<h2>v2.22.9 (2026-06-08)</h2>
+<p><strong>TTS skips symbols:</strong> Playback and Preview remove Unicode punctuation and symbols, keeping only letters, numbers, and spaces; punctuation still drives segment pauses.</p>
+
+<h2>v2.22.8 (2026-06-08)</h2>
+<p><strong>TTS curly quotes fix:</strong> Prevents Chinese TTS from reading curly quotes <code>“”</code> / <code>‘’</code> as spoken punctuation names.</p>
+
+<h2>v2.22.7 (2026-06-08)</h2>
+<p><strong>Dynamic UI i18n refresh:</strong> Language switches now refresh JS-generated labels, fixing cases where the default badge still showed 預設 in English UI.</p>
+
+<h2>v2.22.6 (2026-06-08)</h2>
+<p><strong>More prompt suggestions:</strong> Defaults now include <code>Continue writing</code> and <code>Outline</code>; upgrades backfill missing default suggestions.</p>
+
+<h2>v2.22.5 (2026-06-08)</h2>
+<p><strong>Config section i18n:</strong> Config backup block fully follows system language; Traditional and Simplified Chinese strings for import / export added.</p>
+
+<h2>v2.22.4 (2026-06-07)</h2>
+<p><strong>Suggestions use input text:</strong> When the input box has text, clicking a suggestion sends the suggestion as the instruction and your input as the content.</p>
+
+<h2>v2.22.3 (2026-06-07)</h2>
+<p><strong>MoMo active by default:</strong> The default <code>MoMo</code> system prompt is now active; upgrades restore a hidden default MoMo to visible.</p>
+
+<h2>v2.22.2 (2026-06-07)</h2>
+<p><strong>MoMo default prompt:</strong> Updated to a more general, concise assistant persona with warm tone and basic guidelines.</p>
+
+<h2>v2.22.1 (2026-06-07)</h2>
+<p><strong>Fewer built-in prompts:</strong> Only <code>MoMo</code> remains as a built-in default; legacy Assistant, Copywriter, Email Pro, and Translator presets removed. Custom prompts are kept.</p>
+
+<h2>v2.22.0 (2026-06-07)</h2>
+<p><strong>Default prompt suggestions:</strong> Built-in suggestions are now <code>Translate</code>, <code>Summarize</code>, and <code>Improve writing</code> with English titles; default titles are no longer auto-translated to Chinese.</p>
+
+<h2>v2.21.97 (2026-06-07)</h2>
+<p><strong>Localized prompt suggestion titles:</strong> Traditional and Simplified Chinese interfaces now label the section as 快捷提示. Default prompt suggestions include localized Chinese titles such as 冷知識, 聽起來很厲害, and 深度金句. Saved default suggestions are backfilled with localized titles automatically; custom suggestions are not overwritten.</p>
+
+<h2>v2.21.96 (2026-06-07)</h2>
+<p><strong>Config import / export:</strong> Added a Config section at the bottom of Settings with JSON config export and import for backups or sharing. Exports include providers, models, prompts, prompt suggestions, TTS, page capture, web search, appearance, and behavior settings; chat history and image attachments are not included. Exported config may include API keys, so avoid sharing it publicly.</p>
+
+<h2>v2.21.95 (2026-06-07)</h2>
+<p><strong>Prompt suggestion page-reference timing:</strong> Fixed a race where clicking a Prompt Suggestion immediately after Reference Page could send the user message before page capture finished, so the referenced page content was not attached. Sending now waits for page capture to finish before checking and attaching pending page context.</p>
+
+<h2>v2.21.94 (2026-06-07)</h2>
+<p><strong>System prompts hidden by default:</strong> Default system prompts are no longer shown in the chat window by default, so general users can start from Prompt Suggestions instead. When no system prompt is visible, the sidepanel hides the prompt selector and removes any existing system message from the current session. Existing default prompts are migrated to hidden on upgrade; custom prompts are not changed.</p>
+
+<h2>v2.21.93 (2026-06-07)</h2>
+<p><strong>Custom prompt suggestions:</strong> Quick-start prompts on a new chat can now be customized below System Prompts. Each suggestion has a separate title and full prompt; the chat window shows only the title and sends the full prompt when clicked. Long suggestion lists now scroll in both the welcome screen and settings.</p>
+
+<h2>v2.21.92 (2026-06-07)</h2>
+<p><strong>TTS voice availability filtering:</strong> The voice dropdown now defaults to showing only more reliable Chrome/Google voices (<code>Google*</code> or <code>localService === false</code>) to avoid macOS system voices that are listed but fall back to the system default Cantonese voice during playback. If no reliable voices are available, it falls back to showing all voices; saved voices that are filtered out are cleared automatically.</p>
+
+<h2>v2.21.91 (2026-06-07)</h2>
+<p><strong>TTS voice sync conflict:</strong> Added <code>ttsVoiceUpdatedAt</code>. When reading voice settings, the sidepanel compares local / sync timestamps and uses the latest selected voice. This fixes cases where options shows the new voice but the sidepanel is still overridden by stale local settings and keeps using the system Cantonese voice.</p>
+
+<h2>v2.21.90 (2026-06-07)</h2>
+<p><strong>Manual TTS voice priority:</strong> Strengthened the "manual voice first" strategy. If a saved voice object cannot be matched in the sidepanel temporarily, playback no longer falls straight back to a Chinese/Cantonese voice. It reads the language code from the saved composite voice id and sets <code>utterance.lang</code>, so the browser at least falls back using the language the user selected.</p>
+
+<h2>v2.21.89 (2026-06-07)</h2>
+<p><strong>TTS voice selection matching:</strong> Fixed TTS voice selection only saving <code>voiceURI</code>, which could match the wrong macOS / Chrome multilingual system voice or fall back to the system default Cantonese voice. Voice settings now save a <code>name + lang + voiceURI</code> composite id; sidepanel and preview use the same matching rule and set <code>utterance.lang</code> to the selected voice language.</p>
+
+<h2>v2.21.88 (2026-06-07)</h2>
+<p><strong>TTS reading rhythm pauses:</strong> Reworked the reading rhythm implementation. Short and normal pause settings now merge multiple sentences into longer utterances and keep common punctuation for natural system-voice prosody, avoiding the browser's uncontrolled utterance-boundary pause after every sentence. Long-pause mode still uses shorter segments with extra delay. Preview and sidepanel playback now share the same rhythm strategy.</p>
+
+<h2>v2.21.87 (2026-06-07)</h2>
+<p><strong>TTS setting updates during playback:</strong> TTS now listens for local setting changes while speaking. Speed and pitch slider changes are applied from the next segment. Due to Web Speech limits, an already-started utterance cannot change speed mid-segment, but the next segment uses the new setting.</p>
+
+<h2>v2.21.86 (2026-06-07)</h2>
+<p><strong>Immediate TTS setting updates:</strong> Fixed sidepanel playback only reading <code>chrome.storage.sync</code>, which could keep using stale speed, pitch, or reading rhythm values right after slider changes. The sidepanel now reads <code>local + sync</code> and prefers the latest local settings so TTS sliders affect real playback immediately.</p>
+
+<h2>v2.21.85 (2026-06-07)</h2>
+<p><strong>Page context limit copy:</strong> Simplified the Page Content Character Limit explanation, removed the site-specific example, and made it clearer that the setting controls how much page text the AI can read and how many tokens it may use.</p>
+
+<h2>v2.21.84 (2026-06-07)</h2>
+<p><strong>Smart Capture Chinese translation:</strong> Fixed Smart Capture still appearing in English in Page Content Capture settings. Traditional Chinese now shows 「智能擷取（推薦）」 and Simplified Chinese shows 「智能抓取（推荐）」. Also added <code>captureSmart</code> / <code>captureVisible</code> fallback translations in <code>i18n.js</code>.</p>
+
+<h2>v2.21.83 (2026-06-07)</h2>
+<p><strong>Language dropdown vertical centering:</strong> Fine-tuned the Language dropdown selector position so the selector center aligns with the Language title text center.</p>
+
+<h2>v2.21.82 (2026-06-07)</h2>
+<p><strong>TTS preview button alignment:</strong> Fixed the Text-to-Speech Play Preview button being stretched across the full grid row. The button now keeps its natural width and aligns to the left.</p>
+
+<h2>v2.21.81 (2026-06-07)</h2>
+<p><strong>Language dropdown alignment:</strong> Fixed the Language dropdown selector text being too large and vertically too low. The selector now uses smaller text, a lower control height, and aligns with the Language title row.</p>
+
+<h2>v2.21.80 (2026-06-07)</h2>
+<p><strong>Language settings dropdown:</strong> The General page Language control changed from a three-option segmented control to a dropdown selector using a settings row layout with the label and description on the left and the selector on the right. The existing <code>zhVariant</code> storage and live translation refresh flow is preserved, including Provider hints, Thinking hints, OpenClaw session placeholder, and TTS voice groups after language changes.</p>
+
+<h2>v2.21.79 (2026-06-07)</h2>
+<p><strong>TTS reading rhythm:</strong> Text-to-Speech no longer sends punctuation directly to the system voice, but punctuation is still used as pause boundaries so speech does not become flat and continuous. Added a "Reading rhythm" slider in settings to tune comma, sentence, and line-break pauses; preview and real chat playback use the same segmentation rhythm.</p>
+
+<h2>v2.21.78 (2026-06-07)</h2>
+<p><strong>Custom provider icon:</strong> Custom provider now uses a settings gear icon inspired by the Icons8 Apple SF Regular Settings style, implemented as an original SVG instead of directly importing third-party licensed assets.</p>
+
+<h2>v2.21.77 (2026-06-07)</h2>
+<p><strong>AI provider icons:</strong> Replaced generic placeholder icons for the newly added providers with LobeHub <code>@lobehub/icons-static-svg</code> assets. Anthropic, xAI, Vercel, Together AI, Hugging Face, Mistral, Novita AI, and BigModel (Zhipu) now use matching brand SVGs. Chutes uses its official favicon. Custom now uses a generic chip icon, and dark mode preserves colored provider icons.</p>
+
 <h2>v2.21.76 (2026-06-06)</h2>
 <p><strong>User guide:</strong> Updated the <code>site/</code> manual with the product name <strong>Hii~ Momo: AI Assist</strong>, 20+ AI provider list, auto-generated chat titles, TTS auto-read, and settings-page notes. Traditional Chinese and English pages were updated together.</p>
 

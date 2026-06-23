@@ -32,7 +32,9 @@ research/
 backup/
 
 # Dev notes (internal technical references)
-docs/
+docs/*
+!docs/
+!docs/UI-SPEC.md
 
 # Icon source / animation assets
 icon/

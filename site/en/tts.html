@@ -54,6 +54,17 @@
 <h2>How to Use</h2>
 <p>Click the 🔊 read-aloud button to start playback; click the same button again to stop.</p>
 
+<h2>Text Preprocessing</h2>
+<p>Before playback, Momo cleans the response text:</p>
+<ul>
+  <li>Removes thinking blocks (<code>&lt;think&gt;</code>, <code>&lt;thinking&gt;</code>, <code>&lt;thought&gt;</code>)</li>
+  <li>Strips HTML tags and Markdown syntax</li>
+  <li>Removes emoji and decorative symbols</li>
+  <li>Applies Traditional / Simplified Chinese conversion based on your language preference</li>
+  <li>Converts semantic symbols (such as <code>&amp;</code>, <code>%</code>, <code>+</code>, <code>=</code>, <code>@</code>, common currency symbols) into natural words before speech — e.g. <code>Tom &amp; Jerry</code> → <code>Tom and Jerry</code></li>
+  <li>Other punctuation and decorative symbols are not sent to the speech engine; they are used only for segmentation and pauses (Reading rhythm)</li>
+</ul>
+
 <h2>Settings (Settings → Text-to-Speech)</h2>
 
 <h3>Voice Selection</h3>
@@ -67,11 +78,14 @@
 <p>Adjust the voice pitch.</p>
 
 <h3>Preview</h3>
-<p>Use the preview button to listen to the current settings before applying them. Preview text is also cleaned of punctuation before playback.</p>
+<p>Use the preview button to listen to the current settings before applying them. Preview uses the same preprocessing logic as sidebar playback.</p>
+
+<h3>Reading Rhythm</h3>
+<p>Text is split by punctuation with short pauses between segments so longer replies sound more natural. Punctuation itself is not spoken — it only affects pause timing.</p>
 
 <h3>Auto-read AI Replies</h3>
 <p>Settings include an <strong>Auto-read AI replies</strong> toggle (off by default). When enabled, Momo reads each completed AI reply automatically. You can still use the sidebar 🔊 button to play or stop manually.</p>
-<p>Auto-read uses the same text cleanup as manual playback, removing Markdown, emoji, decorative symbols, and punctuation so the system voice does not read symbols aloud.</p>
+<p>Auto-read and manual playback share the same preprocessing: semantic symbols become natural words, while other punctuation is used only for pauses and is not spoken aloud.</p>
 
 <nav class="page-nav">
   <a href="thinking-mode.html"><span class="label">Previous</span><span class="title">← Thinking Mode</span></a>

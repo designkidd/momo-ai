@@ -61,6 +61,8 @@
   <li>移除 HTML 標籤和 Markdown 語法</li>
   <li>移除 emoji 和裝飾符號</li>
   <li>根據使用者語言偏好自動進行繁簡轉換</li>
+  <li>語義符號（如 <code>&amp;</code>、<code>%</code>、<code>+</code>、<code>=</code>、<code>@</code>、常見貨幣符號）會先轉成自然文字再朗讀，例如 <code>Tom &amp; Jerry</code> → <code>Tom and Jerry</code></li>
+  <li>其他標點與裝飾符號不送進語音引擎，只用於切段與停頓（Reading rhythm）</li>
 </ul>
 
 <h2>設定（設定 → 語音朗讀）</h2>
@@ -76,11 +78,14 @@
 <p>調整朗讀音調高低。</p>
 
 <h3>預覽</h3>
-<p>使用試聽按鈕可預先聽取目前設定效果；試聽文字也會先清理標點再播放。</p>
+<p>使用試聽按鈕可預先聽取目前設定效果；試聽文字會套用與側邊欄正式朗讀相同的前處理邏輯。</p>
+
+<h3>朗讀節奏（Reading rhythm）</h3>
+<p>依原文標點切段，並在段落之間加入短暫停頓，讓長回覆聽起來更自然。標點本身不會被念出來，只影響停頓時機。</p>
 
 <h3>自動朗讀 AI 回覆</h3>
 <p>設定頁提供 <strong>自動朗讀 AI 回覆</strong> 開關，預設關閉。啟用後，AI 回覆完成會自動播放；你仍可隨時點擊側邊欄 🔊 按鈕手動播放或停止。</p>
-<p>自動朗讀同樣會先清理 Markdown、emoji、裝飾符號與中英文標點，避免系統語音把符號念出來。</p>
+<p>自動朗讀與手動朗讀使用相同的前處理：語義符號轉自然文字，其餘標點只用於停頓，不會被系統語音念出。</p>
 
 <nav class="page-nav">
   <a href="thinking-mode.html"><span class="label">上一頁</span><span class="title">← 思考模式</span></a>

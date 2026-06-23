@@ -39,6 +39,7 @@ const SHOW_SCROLL_BTN_THRESHOLD = 80;
 const AUTO_FOLLOW_REARM_OFFSET = 150;
 
 let prompts = [];
+let promptSuggestions = [];
 let sessions = [];
 let sessionsLoaded = false;
 let currentSessionId = null;
@@ -539,6 +540,23 @@ function scheduleAutoFollow(){
   doAutoScroll();
 }
 
+function scheduleLayoutAutoFollow(){
+  if(isFirstMessage || !autoFollow) return;
+  scheduleAutoFollow();
+  requestAnimationFrame(scheduleAutoFollow);
+  setTimeout(scheduleAutoFollow, 50);
+  setTimeout(scheduleAutoFollow, 150);
+  setTimeout(scheduleAutoFollow, 300);
+}
+
+function observeMessageImageLayout(img){
+  if(!img) return;
+  const handleLayoutChange = () => scheduleLayoutAutoFollow();
+  img.addEventListener('load', handleLayoutChange, { once:true });
+  img.addEventListener('error', handleLayoutChange, { once:true });
+  if(img.complete) requestAnimationFrame(handleLayoutChange);
+}
+
 function doAutoScroll(){
   const scroller = getScrollContainer();
   if(!scroller) return;
@@ -570,9 +588,6 @@ function stopStreamingScroll(){
   }
   _programmaticScroll = false;
 }
-
-// 建議問題的翻譯鍵（動態載入）
-const SUGGESTION_KEYS = ['suggestion1', 'suggestion2', 'suggestion3'];
 
 /* ================= Welcome zh apply ================= */
 async function getTimeBasedGreeting(lang){
@@ -1147,6 +1162,7 @@ async function init(){
   const phase2StartedAt = spPerfNow();
   await Promise.all([
     loadPrompts(),
+    loadPromptSuggestions(),
     loadSessions(),
     loadSidebarBehaviorState(),
     loadChatWithPageState(),
@@ -1391,6 +1407,10 @@ function bindEvents(){
         console.log('[SP] Storage local change detected for prompts, reloading...');
         loadPrompts().then(syncSystemMessage);
       }
+      if(changes.promptSuggestions){
+        console.log('[SP] Storage local change detected for prompt suggestions, reloading...');
+        loadPromptSuggestions().then(()=>renderSuggestionsIfNeeded());
+      }
     }
     if(area==='sync' && changes.model){
       loadModels();
@@ -1454,7 +1474,10 @@ function applyTheme(t){
 async function loadPrompts(){
   try{
     // 只從本地存儲讀取，避免同步和本地混用造成的問題
-    const local = await chrome.storage.local.get(['prompts','defaultPrompt','selectedPrompt']);
+    const [local, syncMeta] = await Promise.all([
+      chrome.storage.local.get(['prompts','defaultPrompt','selectedPrompt']),
+      chrome.storage.sync.get(['promptsVersion'])
+    ]);
     console.log('[SP] loadPrompts - Reading from LOCAL storage only');
     
     let promptList=Array.isArray(local.prompts)?local.prompts:[];
@@ -1488,21 +1511,45 @@ async function loadPrompts(){
           needsCleanup=true;
         }
       });
+      const storedVersion = syncMeta.promptsVersion || 1;
+      if(storedVersion < PROMPTS_VERSION){
+        const removedDefaultIds = new Set(typeof REMOVED_DEFAULT_PROMPT_IDS !== 'undefined' ? REMOVED_DEFAULT_PROMPT_IDS : []);
+        if(removedDefaultIds.size){
+          const beforeCount = promptList.length;
+          promptList = promptList.filter(p=>!removedDefaultIds.has(p?.id));
+          if(beforeCount !== promptList.length && removedDefaultIds.has(selectedId)){
+            selectedId = DEFAULT_PROMPT_ID;
+          }
+        }
+        promptList = promptList.map(p=>{
+          if(p.id === DEFAULT_PROMPT_ID && p.visible === false){
+            needsCleanup=true;
+            return { ...p, visible:true };
+          }
+          return p;
+        });
+      }
       
       if(migrated.changed || needsCleanup){
         // 保存到本地存儲
         await chrome.storage.local.set({ prompts:promptList, defaultPrompt:selectedId });
+        await chrome.storage.sync.set({ promptsVersion: PROMPTS_VERSION });
       }
     }
     prompts=promptList;
     console.log('[SP] loadPrompts - Loaded', prompts.length, 'prompts:', prompts.map(p => ({ id: p.id, name: p.name })));
     const visiblePrompts=prompts.filter(p=>p.visible !== false);
     const sel=els.promptSelector;
+    const promptWrap=sel?.closest('.select-wrap.prompt-select');
     sel.innerHTML='';
     if(!visiblePrompts.length){
-      sel.innerHTML=`<option value="">${sp_t('noPrompt')}</option>`;
+      sel.value='';
+      sel.dataset.hasVisiblePrompts='false';
+      if(promptWrap) promptWrap.hidden=true;
       return;
     }
+    sel.dataset.hasVisiblePrompts='true';
+    if(promptWrap) promptWrap.hidden=false;
     visiblePrompts.forEach(p=>{
       const o=document.createElement('option');
       o.value=p.id; o.textContent=p.name;
@@ -1517,7 +1564,75 @@ async function loadPrompts(){
     }
   }catch(e){ showFatal('Failed to load prompts', e); }
 }
-function getSelectedPromptObj(){ return prompts.find(p=>p.id===els.promptSelector.value); }
+function getSelectedPromptObj(){
+  if(els.promptSelector?.dataset.hasVisiblePrompts==='false') return null;
+  return prompts.find(p=>p.visible !== false && p.id===els.promptSelector.value && !!String(p.prompt || '').trim());
+}
+
+async function loadPromptSuggestions(){
+  try{
+    const local = await chrome.storage.local.get(['promptSuggestions']);
+    const syncMeta = await chrome.storage.sync.get(['promptSuggestionsVersion']);
+    let list = Array.isArray(local.promptSuggestions) ? local.promptSuggestions : [];
+    if(!list.length){
+      const sync = await chrome.storage.sync.get(['promptSuggestions']);
+      if(Array.isArray(sync.promptSuggestions) && sync.promptSuggestions.length){
+        list = sync.promptSuggestions;
+        await chrome.storage.local.set({ promptSuggestions:list });
+        await chrome.storage.sync.remove(['promptSuggestions']);
+      }
+    }
+    if(!list.length){
+      list = typeof cloneDefaultPromptSuggestions === 'function'
+        ? cloneDefaultPromptSuggestions()
+        : [
+          { id:'fun-fact', title:'Translate', prompt:'Translate this naturally. Preserve the original meaning, tone, formatting, names, links, and technical terms.' },
+          { id:'impressive-line', title:'Summarize', prompt:'Summarize this clearly in concise bullet points. Keep only the key ideas, decisions, and action items.' },
+          { id:'deep-line', title:'Improve writing', prompt:'Rewrite this to be clearer, smoother, and more polished. Keep the original meaning, but improve structure, wording, and readability.' },
+          { id:'continue-writing', title:'Continue writing', prompt:'Continue writing from this text in the same style and tone. Keep it coherent, natural, and directly connected to what came before.' },
+          { id:'outline', title:'Outline', prompt:'Create a clear outline for this topic or draft. Organize the main points, supporting details, and suggested structure.' }
+        ];
+      await chrome.storage.local.set({ promptSuggestions:list });
+      await chrome.storage.sync.set({ promptSuggestionsVersion: PROMPT_SUGGESTIONS_VERSION });
+    }
+    if(typeof DEFAULT_PROMPT_SUGGESTIONS !== 'undefined'){
+      const byId = new Map(DEFAULT_PROMPT_SUGGESTIONS.map(item=>[item.id, item]));
+      list = list.map(item=>{
+        const def = byId.get(item?.id);
+        if(!def) return item;
+        return {
+          ...item,
+          title:item.title || def.title || '',
+          titleHant:'',
+          titleHans:''
+        };
+      });
+      if((syncMeta.promptSuggestionsVersion || 1) < PROMPT_SUGGESTIONS_VERSION){
+        const existingSuggestionIds = new Set(list.map(item=>item?.id));
+        DEFAULT_PROMPT_SUGGESTIONS.forEach(def=>{
+          if(!existingSuggestionIds.has(def.id)){
+            list.push({ ...def });
+          }
+        });
+        await chrome.storage.local.set({ promptSuggestions:list });
+        await chrome.storage.sync.set({ promptSuggestionsVersion: PROMPT_SUGGESTIONS_VERSION });
+      }
+    }
+    promptSuggestions = list
+      .filter(s=>s && typeof s === 'object')
+      .map(s=>({
+        id:String(s.id || (typeof generateUUID === 'function' ? generateUUID() : Date.now())),
+        title:String(s.title || s.prompt || '').trim(),
+        titleHant:String(s.titleHant || '').trim(),
+        titleHans:String(s.titleHans || '').trim(),
+        prompt:String(s.prompt || s.title || '').trim()
+      }))
+      .filter(s=>s.title && s.prompt);
+  }catch(e){
+    console.warn('[SP] Failed to load prompt suggestions:', e);
+    promptSuggestions = typeof cloneDefaultPromptSuggestions === 'function' ? cloneDefaultPromptSuggestions() : [];
+  }
+}
 
 /* ================= Models ================= */
 async function loadModels() {
@@ -1964,12 +2079,14 @@ async function updateOpenClawPromptVisibility(){
     const isAgentProvider = isAgentProviderId(providerId, providerConfigs);
     // 禁用提示詞選擇器（灰色不可操作），但不隱藏
     const promptWrap = els.promptSelector?.closest('.select-wrap.prompt-select');
+    const hasVisiblePrompts = els.promptSelector?.dataset.hasVisiblePrompts !== 'false';
     if(promptWrap){
-      promptWrap.style.opacity = isAgentProvider ? '0.35' : '';
-      promptWrap.style.pointerEvents = isAgentProvider ? 'none' : '';
+      promptWrap.hidden = !hasVisiblePrompts;
+      promptWrap.style.opacity = hasVisiblePrompts && isAgentProvider ? '0.35' : '';
+      promptWrap.style.pointerEvents = hasVisiblePrompts && isAgentProvider ? 'none' : '';
     }
     if(els.promptSelector){
-      els.promptSelector.disabled = isAgentProvider;
+      els.promptSelector.disabled = !hasVisiblePrompts || isAgentProvider;
     }
     // 禁用時鐘（歷史）與新對話按鈕，agent provider 由自身 session / memory 管理
     for(const btn of [els.historyButton, els.newChatButton]){
@@ -2605,6 +2722,19 @@ function setPageContextBusy(busy){
     // 不禁用按鈕，這樣用戶可以點擊取消，且 tooltip 可以顯示
     // btn.disabled=busy;
   }
+}
+
+function sleep(ms){
+  return new Promise(resolve=>setTimeout(resolve, ms));
+}
+
+async function waitForPageContextIdle(timeoutMs=30000){
+  if(!pageContextBusy) return true;
+  const started=Date.now();
+  while(pageContextBusy && Date.now()-started < timeoutMs){
+    await sleep(100);
+  }
+  return !pageContextBusy;
 }
 
 async function checkPageContextStatus(){
@@ -4539,6 +4669,8 @@ function renameSession(id,title){
   const s=sessions.find(s=>s.id===id);
   if(s && title){
     s.title=title;
+    s._titleUserEdited = true;
+    s._titleAutoGenerated = false;
     persistSessions();
     renderSessionList();
   }
@@ -4687,6 +4819,53 @@ function translateSessionTitle(title){
   return title;
 }
 
+function isDefaultSessionTitle(title){
+  return title === 'New Chat' || title === '新對話' || title === '新对话';
+}
+
+function cleanChatTitleCandidate(text){
+  let title = String(text || '')
+    .replace(/<think>[\s\S]*?<\/think>/gi, ' ')
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/!\[[^\]]*]\([^)]+\)/g, ' ')
+    .replace(/\[[^\]]*]\([^)]+\)/g, m => m.replace(/^\[|\]\([^)]+\)$/g, ''))
+    .replace(/https?:\/\/\S+/gi, ' ')
+    .replace(/[#>*_~|]+/g, ' ')
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  title = title.replace(/^["'「『“‘\s]+|["'」』”’\s]+$/g, '');
+  title = title.replace(/[.!?。！？,，、;；:：]+$/g, '').trim();
+  return title;
+}
+
+function truncateChatTitle(title){
+  const clean = cleanChatTitleCandidate(title);
+  if(!clean) return '';
+  const hasCjk = /[\u3400-\u9fff]/.test(clean);
+  const max = hasCjk ? 24 : 48;
+  return clean.length > max ? clean.slice(0, max).trim() : clean;
+}
+
+function buildFallbackSessionTitle({ text = '', hasImages = false, hasPageContext = false } = {}){
+  const cleaned = truncateChatTitle(text);
+  if(cleaned) return cleaned;
+  if(hasImages) return 'Image';
+  if(hasPageContext) return 'Page Content';
+  return 'New Chat';
+}
+
+function setAutoSessionTitle(session, title, source){
+  if(!session || session._titleUserEdited) return false;
+  const next = truncateChatTitle(title);
+  if(!next) return false;
+  session.title = next;
+  session._titleAutoGenerated = true;
+  session._titleSource = source || 'auto';
+  return true;
+}
+
 function renderSessionList(){
   const listEl=els.sessionList; if(!listEl)return;
   listEl.innerHTML='';
@@ -4757,25 +4936,30 @@ async function renderSuggestionsIfNeeded(){
     // 清空現有內容，防止重複
     els.suggestionList.innerHTML='';
     
-    const lang = uiLang();
-    
     try {
-      // 使用翻譯系統載入建議問題
-      for(const key of SUGGESTION_KEYS){
-        let text = '';
-        if(typeof window.__tAsync === 'function'){
-          text = await window.__tAsync(key, lang);
-        } else if(typeof window.__t === 'function'){
-          text = window.__t(key, lang);
-        } else {
-          text = key;
-        }
-        
+      if(!promptSuggestions.length){
+        await loadPromptSuggestions();
+      }
+      const items = promptSuggestions.length
+        ? promptSuggestions
+        : (typeof cloneDefaultPromptSuggestions === 'function' ? cloneDefaultPromptSuggestions() : []);
+      for(const item of items){
+        const title = String(
+          typeof localizePromptSuggestionTitle === 'function'
+            ? localizePromptSuggestionTitle(item, uiLang())
+            : (item.title || item.prompt || '')
+        ).trim();
+        const prompt = String(item.prompt || item.title || '').trim();
+        if(!title || !prompt) continue;
         const card=document.createElement('div');
         card.className='suggestion-card';
-        card.textContent=text;
+        card.textContent=title;
+        card.title=prompt;
         card.addEventListener('click',()=>{
-          els.messageInput.value=text;
+          const draft = els.messageInput.value.trim();
+          els.messageInput.value = draft
+            ? `${prompt}\n\nContent:\n${draft}`
+            : prompt;
           autoGrow(els.messageInput);
           updateSendButtonState();
           setInputEngagedState();
@@ -4802,7 +4986,15 @@ function syncSystemMessage(){
     return; // 不修改也不刪除，僅跳過
   }
 
-  const p=getSelectedPromptObj(); if(!p)return;
+  const p=getSelectedPromptObj();
+  if(!p){
+    if(session.messages[0]?.role==='system'){
+      session.messages.shift();
+      persistSessions();
+      renderAllMessages();
+    }
+    return;
+  }
   if(!session.messages.length || session.messages[0].role!=='system'){
     session.messages.unshift({ role:'system', content:p.prompt, ts:Date.now() });
   } else if(session.messages[0].content!==p.prompt){
@@ -4937,6 +5129,9 @@ function renderMessageText(target, rawText, msg, role){
     target.textContent = original;
     return;
   }
+  const observeMarkdownImages = () => {
+    target.querySelectorAll('img').forEach(observeMessageImageLayout);
+  };
 
   if(original.length > LONG_MARKDOWN_DEFER_LENGTH){
     target.textContent = original;
@@ -4946,6 +5141,7 @@ function renderMessageText(target, rawText, msg, role){
       if(target.textContent !== original) return;
       target.innerHTML = renderMarkdownBlocks(original);
       delete target.dataset.markdownPending;
+      observeMarkdownImages();
       scheduleAutoFollow();
       updateScrollBtnVisibility();
     });
@@ -4953,12 +5149,14 @@ function renderMessageText(target, rawText, msg, role){
   }
 
   target.innerHTML = renderMarkdownBlocks(original);
+  observeMarkdownImages();
 }
 
 function buildMessageImageElement(srcPromise, altText){
   const img = document.createElement('img');
   img.className = 'message-image';
   img.alt = altText || 'Image';
+  observeMessageImageLayout(img);
   const setImageSrc = url => {
     if(!url) return;
     img.src = url;
@@ -5094,6 +5292,7 @@ function renderMessage(msg){
           const img = document.createElement('img');
           img.className = 'message-image';
           img.alt = part.name || 'Uploaded image';
+          observeMessageImageLayout(img);
           const setImageSrc = url => {
             if(!url) return;
             img.src = url;
@@ -5137,6 +5336,7 @@ function renderMessage(msg){
       msg.images.forEach(img=>{
         const imgEl = document.createElement('img');
         imgEl.className = 'message-image';
+        observeMessageImageLayout(imgEl);
         imgEl.src = `data:${img.type};base64,${img.data}`;
         imgEl.alt = img.name || 'Uploaded image';
         imgEl.onclick = ()=>{
@@ -5900,9 +6100,33 @@ async function retryAssistant(msg){
 // 語音合成朗讀功能
 let currentSpeech = null;
 let currentSpeakButton = null;
+let currentSpeechTimer = null;
+let currentSpeechRunId = 0;
 let _ttsVoicesReady = false;
+const TTS_SETTING_KEYS = ['ttsVoice','ttsVoiceUpdatedAt','ttsRate','ttsPitch','ttsPause'];
+let currentTtsPlaybackSettings = {};
 const SPEAK_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>`;
 const STOP_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6" fill="currentColor"/></svg>`;
+
+function resetSpeechButton(){
+  if(currentSpeakButton){
+    currentSpeakButton.innerHTML = SPEAK_ICON;
+    currentSpeakButton.title = sp_t('readAloud');
+    currentSpeakButton.setAttribute('aria-label', sp_t('readAloud'));
+  }
+  currentSpeakButton = null;
+}
+
+function stopCurrentSpeech(){
+  currentSpeechRunId++;
+  if(currentSpeechTimer){
+    clearTimeout(currentSpeechTimer);
+    currentSpeechTimer = null;
+  }
+  if(window.speechSynthesis) window.speechSynthesis.cancel();
+  currentSpeech = null;
+  resetSpeechButton();
+}
 
 if(window.speechSynthesis){
   window.speechSynthesis.cancel();
@@ -5923,7 +6147,7 @@ function _ensureVoices(){
   });
 }
 
-// 朗讀前：去除思路區塊、HTML 標籤、符號與 emoji
+// 朗讀前：去除思路區塊、HTML 標籤與 emoji；標點保留為停頓邊界。
 function sanitizeSpeakText(src=''){
   if(!src) return '';
   let t = String(src)
@@ -5961,10 +6185,95 @@ function sanitizeSpeakText(src=''){
   t = t.replace(/[★☆✦✧✨✩✪✫✬✭✮✯✰⭐💡🔑📌📎🎯🎨💎⚡🔥❓❗❕❔✅❌⬆⬇⬅➡→←↑↓▲△▼▽◆◇○●◎■□▪▫☑☐•·※✓✗✘≈≠≤≥±÷×∞∴∵∈∉⊂⊃∩∪]+/gu, '');
   // HTML entities
   t = t.replace(/&[a-z]+;/gi, ' ');
+  t = t.replace(/\r\n?/g, '\n');
   // Collapse extra whitespace
   t = t.replace(/[ \t]+/g, ' ');
   t = t.replace(/\n{3,}/g, '\n\n');
   return t.trim();
+}
+
+function normalizeTtsSemanticSymbols(src=''){
+  const text = String(src || '');
+  const useCjk = /[\u3400-\u9fff]/.test(text);
+  const words = useCjk
+    ? { amp:' 和 ', percent:' 百分比 ', plus:' 加 ', equals:' 等於 ', times:' 乘 ', lt:' 小於 ', gt:' 大於 ', at:' at ', dollar:' 美元 ', euro:' 歐元 ', pound:' 英鎊 ', yen:' 日元 ' }
+    : { amp:' and ', percent:' percent ', plus:' plus ', equals:' equals ', times:' times ', lt:' less than ', gt:' greater than ', at:' at ', dollar:' dollars ', euro:' euros ', pound:' pounds ', yen:' yen ' };
+  return text
+    .replace(/&/g, words.amp)
+    .replace(/%/g, words.percent)
+    .replace(/\+/g, words.plus)
+    .replace(/=/g, words.equals)
+    .replace(/[×✕✖]/g, words.times)
+    .replace(/</g, words.lt)
+    .replace(/>/g, words.gt)
+    .replace(/@/g, words.at)
+    .replace(/\$/g, words.dollar)
+    .replace(/€/g, words.euro)
+    .replace(/£/g, words.pound)
+    .replace(/[¥￥]/g, words.yen);
+}
+
+function cleanTtsSegmentText(src=''){
+  return normalizeTtsSemanticSymbols(src)
+    .replace(/[\p{P}\p{S}]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function cleanTtsProsodyText(src=''){
+  return normalizeTtsSemanticSymbols(src)
+    .replace(/[\p{P}\p{S}]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function buildTtsSegments(src=''){
+  const text = sanitizeSpeakText(src);
+  if(!text) return [];
+  const parts = [];
+  let buf = '';
+
+  function push(pauseMs){
+    const clean = cleanTtsSegmentText(buf);
+    const prosodyText = cleanTtsProsodyText(buf);
+    if(clean) parts.push({ text: clean, prosodyText: prosodyText || clean, pauseMs });
+    buf = '';
+  }
+
+  for(const ch of text){
+    if(ch === '\n'){
+      buf += '。';
+      push(700);
+    }else if(/[。！？!?；;]/.test(ch)){
+      buf += ch;
+      push(520);
+    }else if(/[：:]/.test(ch)){
+      buf += ch;
+      push(420);
+    }else if(/[，,、]/.test(ch)){
+      buf += ch;
+      push(240);
+    }else if(/[.…]/.test(ch)){
+      buf += ch;
+      push(560);
+    }else{
+      buf += ch;
+    }
+  }
+  push(0);
+  return parts;
+}
+
+function buildTtsPlaybackParts(segments, pauseScale=1){
+  const scale = Number.isFinite(pauseScale) ? pauseScale : 1;
+  const delayScale = scale <= 1.2
+    ? Math.max(0, scale * 0.55)
+    : scale * 0.85;
+  return segments.map(part => ({
+    text: part.text,
+    pauseMs: Math.round((part.pauseMs || 0) * delayScale),
+    useProsody: false
+  }));
 }
 
 function autoWrapThinkingContent(raw='', ctx={}){
@@ -6066,17 +6375,57 @@ function _extractTextContent(content){
   return String(content);
 }
 
+function makeTtsVoiceId(voice){
+  if(!voice) return '';
+  return [voice.name || '', voice.lang || '', voice.voiceURI || ''].join('||');
+}
+
+function getLangFromTtsVoiceId(voiceId){
+  return String(voiceId || '').split('||')[1] || '';
+}
+
+function resolveTtsVoice(voiceId, voices){
+  if(!voiceId) return null;
+  return voices.find(v => makeTtsVoiceId(v) === voiceId) ||
+    voices.find(v => v.voiceURI === voiceId) ||
+    null;
+}
+
+async function getTtsPlaybackSettings(){
+  const [syncSettings, localSettings] = await Promise.all([
+    chrome.storage.sync.get(TTS_SETTING_KEYS),
+    chrome.storage.local.get(TTS_SETTING_KEYS)
+  ]);
+  const merged = { ...syncSettings, ...localSettings };
+  const syncVoiceAt = Number(syncSettings.ttsVoiceUpdatedAt) || 0;
+  const localVoiceAt = Number(localSettings.ttsVoiceUpdatedAt) || 0;
+  if(syncVoiceAt > localVoiceAt){
+    merged.ttsVoice = syncSettings.ttsVoice;
+    merged.ttsVoiceUpdatedAt = syncSettings.ttsVoiceUpdatedAt;
+  }
+  currentTtsPlaybackSettings = merged;
+  return currentTtsPlaybackSettings;
+}
+
+chrome.storage.onChanged.addListener((changes, area)=>{
+  if(area !== 'local' && area !== 'sync') return;
+  if(Object.prototype.hasOwnProperty.call(changes, 'ttsVoice') ||
+     Object.prototype.hasOwnProperty.call(changes, 'ttsVoiceUpdatedAt')){
+    getTtsPlaybackSettings().catch(err => console.warn('[speak] Failed to refresh TTS settings:', err));
+    return;
+  }
+  for(const key of TTS_SETTING_KEYS){
+    if(!Object.prototype.hasOwnProperty.call(changes, key)) continue;
+    if(area === 'local' || !Object.prototype.hasOwnProperty.call(currentTtsPlaybackSettings, key)){
+      currentTtsPlaybackSettings[key] = changes[key].newValue;
+    }
+  }
+});
+
 async function speakMessage(msg, btnEl){
   // 如果正在朗讀，則停止
   if(currentSpeech || (window.speechSynthesis && window.speechSynthesis.speaking)){
-    window.speechSynthesis.cancel();
-    currentSpeech = null;
-    if(currentSpeakButton){
-      currentSpeakButton.innerHTML = SPEAK_ICON;
-      currentSpeakButton.title = sp_t('readAloud');
-      currentSpeakButton.setAttribute('aria-label', sp_t('readAloud'));
-    }
-    currentSpeakButton = null;
+    stopCurrentSpeech();
     console.log('[speak] Stopped current speech');
     return;
   }
@@ -6087,32 +6436,24 @@ async function speakMessage(msg, btnEl){
   }
 
   const original = _extractTextContent(msg.content);
-  const text = sanitizeSpeakText(original);
-  if(!text.trim()){
+  const segments = buildTtsSegments(original);
+  if(!segments.length){
     console.warn('[speak] No content to speak');
     return;
   }
 
   await _ensureVoices();
 
-  const ttsSettings = await new Promise(r =>
-    chrome.storage.sync.get(['ttsVoice','ttsRate','ttsPitch'], d => r(d))
-  );
+  const ttsSettings = await getTtsPlaybackSettings();
 
   window.speechSynthesis.cancel();
-
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = uiLang()==='en' ? 'en-US' : (uiLang()==='hans'?'zh-CN':'zh-TW');
-  utterance.rate = parseFloat(ttsSettings.ttsRate) || 1.0;
-  utterance.pitch = parseFloat(ttsSettings.ttsPitch) || 1.0;
-  utterance.volume = 1.0;
 
   const voices = window.speechSynthesis.getVoices();
   let selectedVoice = null;
   if(ttsSettings.ttsVoice){
-    selectedVoice = voices.find(v => v.voiceURI === ttsSettings.ttsVoice);
+    selectedVoice = resolveTtsVoice(ttsSettings.ttsVoice, voices);
   }
-  if(!selectedVoice){
+  if(!selectedVoice && !ttsSettings.ttsVoice){
     selectedVoice = voices.find(voice =>
       voice.lang.includes('zh') ||
       voice.lang.includes('CN') ||
@@ -6121,45 +6462,90 @@ async function speakMessage(msg, btnEl){
     );
   }
   if(selectedVoice){
-    utterance.voice = selectedVoice;
-    console.log('[speak] Using voice:', selectedVoice.name);
+    console.log('[speak] Using voice:', selectedVoice.name, selectedVoice.lang);
+  }else{
+    console.warn('[speak] Selected TTS voice not matched:', ttsSettings.ttsVoice, 'fallback lang:', getLangFromTtsVoiceId(ttsSettings.ttsVoice));
   }
 
-  utterance.onstart = () => {
-    console.log('[speak] Started speaking');
-    if(btnEl){
-      btnEl.innerHTML = STOP_ICON;
-      btnEl.title = sp_t('stopReading');
-      btnEl.setAttribute('aria-label', sp_t('stopReading'));
-      currentSpeakButton = btnEl;
-    }
-  };
+  const runId = ++currentSpeechRunId;
+  let index = 0;
+  let playbackParts = buildTtsPlaybackParts(segments, parseFloat(ttsSettings.ttsPause) || 1.0);
 
-  utterance.onend = () => {
+  if(btnEl){
+    btnEl.innerHTML = STOP_ICON;
+    btnEl.title = sp_t('stopReading');
+    btnEl.setAttribute('aria-label', sp_t('stopReading'));
+    currentSpeakButton = btnEl;
+  }
+
+  function finishSpeech(){
+    if(runId !== currentSpeechRunId) return;
     console.log('[speak] Finished speaking');
     currentSpeech = null;
-    if(currentSpeakButton){
-      currentSpeakButton.innerHTML = SPEAK_ICON;
-      currentSpeakButton.title = sp_t('readAloud');
-      currentSpeakButton.setAttribute('aria-label', sp_t('readAloud'));
-    }
-    currentSpeakButton = null;
-  };
+    currentSpeechTimer = null;
+    resetSpeechButton();
+  }
 
-  utterance.onerror = (event) => {
-    console.error('[speak] Speech error:', event.error);
-    currentSpeech = null;
-    if(currentSpeakButton){
-      currentSpeakButton.innerHTML = SPEAK_ICON;
-      currentSpeakButton.title = sp_t('readAloud');
-      currentSpeakButton.setAttribute('aria-label', sp_t('readAloud'));
+  function speakNext(){
+    if(runId !== currentSpeechRunId) return;
+    const latestSettings = currentTtsPlaybackSettings || ttsSettings;
+    const part = playbackParts[index++];
+    if(!part){
+      finishSpeech();
+      return;
     }
-    currentSpeakButton = null;
-  };
 
-  currentSpeech = utterance;
-  window.speechSynthesis.speak(utterance);
-  console.log('[speak] Speaking:', text.slice(0, 50) + '...');
+    const utterance = new SpeechSynthesisUtterance(part.text);
+    utterance.lang = selectedVoice?.lang ||
+      getLangFromTtsVoiceId(ttsSettings.ttsVoice) ||
+      (uiLang()==='en' ? 'en-US' : (uiLang()==='hans'?'zh-CN':'zh-TW'));
+    utterance.rate = parseFloat(latestSettings.ttsRate) || 1.0;
+    utterance.pitch = parseFloat(latestSettings.ttsPitch) || 1.0;
+    utterance.volume = 1.0;
+    if(selectedVoice) utterance.voice = selectedVoice;
+    if(index === 1){
+      console.log('[speak] Utterance config:', {
+        lang: utterance.lang,
+        voice: utterance.voice ? `${utterance.voice.name} (${utterance.voice.lang})` : '(browser default)'
+      });
+    }
+
+    utterance.onstart = () => {
+      if(index === 1) console.log('[speak] Started speaking');
+    };
+    utterance.onend = () => {
+      if(runId !== currentSpeechRunId) return;
+      const delay = Math.max(0, Math.round(part.pauseMs || 0));
+      if(index < playbackParts.length && delay > 0){
+        currentSpeechTimer = setTimeout(speakNext, delay);
+      }else{
+        speakNext();
+      }
+    };
+    utterance.onerror = (event) => {
+      if(runId !== currentSpeechRunId) return;
+      console.error('[speak] Speech error:', event.error);
+      finishSpeech();
+    };
+
+    currentSpeech = utterance;
+    window.speechSynthesis.speak(utterance);
+  }
+
+  speakNext();
+  console.log('[speak] Speaking parts:', playbackParts.length, playbackParts[0]?.text.slice(0, 50) + '...');
+}
+
+async function maybeAutoSpeakAssistantMessage(ts){
+  try{
+    const { ttsAutoRead } = await chrome.storage.sync.get('ttsAutoRead');
+    if(ttsAutoRead !== true) return;
+    const msg = getCurrentSession()?.messages.find(m => m.ts === ts);
+    if(!msg || msg.role !== 'assistant' || msg._streaming) return;
+    await speakMessage(msg, null);
+  }catch(e){
+    console.warn('[speak] Auto-read failed:', e);
+  }
 }
 
 // 顯示頁面內容查看模態框
@@ -6369,6 +6755,7 @@ function appendMessage(msg){
     }
   }
   // 新訊息加入後立即更新按鈕顯示狀態
+  scheduleLayoutAutoFollow();
   requestAnimationFrame(()=> updateScrollBtnVisibility());
 }
 
@@ -6909,6 +7296,15 @@ async function onSend(){
     console.log('[SP] Already streaming, return');
     return;
   }
+  if(pageContextBusy){
+    console.log('[SP] Waiting for page context capture before send...');
+    const completed = await waitForPageContextIdle();
+    if(!completed){
+      console.warn('[SP] Page context capture did not finish before send timeout');
+      showToast(sp_t('capturingPage'));
+      return;
+    }
+  }
   const text=els.messageInput.value.trim();
   console.log('[SP] Input text:', text);
   
@@ -6929,17 +7325,17 @@ async function onSend(){
   }
   console.log('[SP] Session OK, proceeding...');
 
-  // 設定會話標題
-  if(session.title==='New Chat' || session.title==='新對話' || session.title==='新对话'){
-    if(text){
-      session.title = text.slice(0,16);
-    } else if(uploadedImages.length > 0){
-      session.title = 'Image'; // sentinel translated at render time
-    } else if(hasPendingPageContent){
-      session.title = 'Page Content'; // sentinel translated at render time
-    } else {
-      session.title = 'New Chat'; // sentinel translated at render time
-    }
+  // 設定即時 fallback 標題；AI 回覆完成後會再背景生成更準確的短標題。
+  if(isDefaultSessionTitle(session.title)){
+    const fallbackTitle = buildFallbackSessionTitle({
+      text,
+      hasImages: uploadedImages.length > 0,
+      hasPageContext: hasPendingPageContent
+    });
+    session.title = fallbackTitle;
+    session._titleAutoGenerated = true;
+    session._titleSource = 'fallback';
+    if(els.historyPanel?.classList.contains('open')) renderSessionList();
   }
   
   // 構建用戶消息：支持純文本或文本+圖片
@@ -7162,6 +7558,192 @@ function extractOpenAICompletionText(payload){
   return typeof text === 'string' ? text : '';
 }
 
+function getAnthropicMessagesUrl(base){
+  const b = (base || 'https://api.anthropic.com/v1').trim().replace(/\/+$/,'').replace(/\/messages$/,'');
+  return /\/v1$/.test(b) ? `${b}/messages` : `${b}/v1/messages`;
+}
+
+function buildAnthropicPayloadMessages(messages){
+  let system = '';
+  const out = [];
+  for(const msg of messages || []){
+    if(msg.role === 'system'){
+      const text = messageRawText(msg.content).trim();
+      if(text) system += (system ? '\n\n' : '') + text;
+      continue;
+    }
+    if(msg.role !== 'user' && msg.role !== 'assistant') continue;
+    const text = messageRawText(msg.content).trim();
+    if(!text) continue;
+    const last = out[out.length - 1];
+    if(last && last.role === msg.role){
+      last.content += '\n\n' + text;
+    }else{
+      out.push({ role: msg.role, content: text });
+    }
+  }
+  return { system, messages: out };
+}
+
+function extractAnthropicCompletionText(payload){
+  const content = payload?.content;
+  if(Array.isArray(content)){
+    return content
+      .map(part => part?.type === 'text' ? (part.text || '') : '')
+      .filter(Boolean)
+      .join('\n');
+  }
+  return '';
+}
+
+async function callAnthropicMessages({ apiKey, apiEndpoint, model, messages, maxTokens = 1024, signal }){
+  const built = buildAnthropicPayloadMessages(messages);
+  if(!built.messages.length) throw new Error('No messages to send.');
+  const body = {
+    model,
+    messages: built.messages,
+    max_tokens: maxTokens
+  };
+  if(built.system) body.system = built.system;
+  const resp = await fetch(getAnthropicMessagesUrl(apiEndpoint), {
+    method:'POST',
+    headers: {
+      'Content-Type':'application/json',
+      'x-api-key': apiKey || '',
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify(body),
+    signal
+  });
+  const text = await resp.text();
+  if(!resp.ok) throw new Error(`HTTP ${resp.status} ${text.slice(0, 200)}`);
+  let data;
+  try{ data = JSON.parse(text || '{}'); }
+  catch(e){ throw new Error('Anthropic returned non-JSON response: ' + text.slice(0, 200)); }
+  return extractAnthropicCompletionText(data).trim();
+}
+
+function buildConversationTitleInput(session){
+  if(!session?.messages?.length) return '';
+  const lines = [];
+  for(const msg of session.messages){
+    if(lines.length >= 6) break;
+    if(msg._pageContext || msg.role === 'system') continue;
+    if(msg.role !== 'user' && msg.role !== 'assistant') continue;
+    const text = cleanChatTitleCandidate(getMessageContentString(msg)).slice(0, 700);
+    if(!text) continue;
+    lines.push(`${msg.role === 'user' ? 'User' : 'Assistant'}: ${text}`);
+  }
+  return lines.join('\n').slice(0, 2600);
+}
+
+async function shouldAutoGenerateChatTitles(){
+  const [sync, local] = await Promise.all([
+    chrome.storage.sync.get('autoGenerateChatTitles'),
+    chrome.storage.local.get('autoGenerateChatTitles')
+  ]);
+  const val = sync.autoGenerateChatTitles ?? local.autoGenerateChatTitles;
+  return val !== false;
+}
+
+async function generateChatTitleForSession(sessionId, ctx = {}){
+  const session = sessions.find(s => s.id === sessionId);
+  if(!session || !isStandardLocalSession(session)) return;
+  if(session._titleUserEdited || session._titleGenerationAttempted) return;
+  if(!(await shouldAutoGenerateChatTitles())) return;
+  const convo = buildConversationTitleInput(session);
+  if(!convo) return;
+
+  session._titleGenerationAttempted = true;
+  persistSessions();
+
+  try{
+    const { customModels, providerConfigs } = await chrome.storage.local.get(['customModels','providerConfigs']);
+    let model = ctx.model || modelNameFromUid(els.modelSelector?.value || '') || 'gpt-3.5-turbo';
+    let modelProvider = ctx.modelProvider || null;
+    if(!modelProvider){
+      const modelData = findModelByUid(customModels, els.modelSelector?.value || '');
+      modelProvider = modelData?.provider || null;
+    }
+    if(isAgentProviderId(modelProvider, providerConfigs)) return;
+
+    let apiKey = '';
+    let apiEndpoint = '';
+    if(modelProvider && providerConfigs?.[modelProvider]){
+      apiKey = providerConfigs[modelProvider].apiKey || '';
+      apiEndpoint = providerConfigs[modelProvider].baseUrl || '';
+    }else{
+      const legacy = await chrome.storage.local.get(['apiKey','apiEndpoint']);
+      apiKey = legacy.apiKey || '';
+      apiEndpoint = legacy.apiEndpoint || '';
+    }
+
+    const hasPerm = await guardHostPermission(apiEndpoint);
+    if(!hasPerm) return;
+
+    const base = (apiEndpoint?.trim() || 'https://api.openai.com/v1').replace(/\/+$/,'');
+    const prompt = [
+      'Generate a concise chat title.',
+      'Rules:',
+      '- Use the same language as the conversation.',
+      '- 3 to 6 words, max 24 Chinese characters or 48 English characters.',
+      '- No quotes, no ending punctuation, no emoji.',
+      '- Return only the title.',
+      '',
+      convo
+    ].join('\n');
+
+    let titleText = '';
+    if(modelProvider === 'anthropic'){
+      titleText = await callAnthropicMessages({
+        apiKey,
+        apiEndpoint: base || 'https://api.anthropic.com/v1',
+        model,
+        messages: [{ role:'user', content: prompt }],
+        maxTokens: 32
+      });
+    }else{
+      const url = buildChatCompletionsUrl(base);
+      const proxied = await proxyFetchViaBackground(url, {
+        method:'POST',
+        headers: {
+          'Content-Type':'application/json',
+          ...(apiKey ? { 'Authorization':'Bearer '+apiKey } : {})
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role:'user', content: prompt }],
+          temperature: 0.2,
+          max_tokens: 32,
+          stream: false
+        })
+      });
+      if(!proxied.ok) throw new Error(proxied.error || proxied.text || `HTTP ${proxied.status || 0}`);
+      const data = JSON.parse(proxied.text || '{}');
+      titleText = extractOpenAICompletionText(data);
+    }
+    const title = truncateChatTitle(titleText);
+    const current = sessions.find(s => s.id === sessionId);
+    if(!title || !current || current._titleUserEdited || !isStandardLocalSession(current)) return;
+    if(setAutoSessionTitle(current, title, 'ai')){
+      current._titleGeneratedAt = Date.now();
+      persistSessions();
+      renderSessionList();
+    }
+  }catch(err){
+    console.warn('[SP] auto-generate chat title failed:', err?.message || err);
+  }
+}
+
+function maybeGenerateChatTitle(ts, ctx = {}){
+  const session = getCurrentSession();
+  const msg = session?.messages?.find(m => m.ts === ts);
+  if(!session || !msg || msg.role !== 'assistant') return;
+  if(!isStandardLocalSession(session) || session._titleUserEdited) return;
+  generateChatTitleForSession(session.id, ctx);
+}
+
 function sanitizeHermesContent(content){
   if(typeof content === 'string') return content;
   if(Array.isArray(content)){
@@ -7367,6 +7949,36 @@ async function streamChatCompletion(assistantTs){
       }
     }
   }
+
+  if(modelProvider === 'anthropic'){
+    streamAbortController = new AbortController();
+    const FETCH_TIMEOUT_MS = 120000;
+    const fetchTimeoutId = setTimeout(()=>{
+      if(streamAbortController) streamAbortController.abort(new Error('Request timed out after '+FETCH_TIMEOUT_MS/1000+'s'));
+    }, FETCH_TIMEOUT_MS);
+    try{
+      const text = await callAnthropicMessages({
+        apiKey,
+        apiEndpoint,
+        model,
+        messages,
+        maxTokens: 4096,
+        signal: streamAbortController.signal
+      });
+      clearTimeout(fetchTimeoutId);
+      if(!text) throw new Error('Anthropic returned an empty response.');
+      hideThinkingDots(assistantTs);
+      replaceMessageContent(assistantTs, text, true);
+      finalizeStreamingMessage(assistantTs);
+      finalizeAssistantMessageContent(assistantTs, text);
+      return;
+    }catch(e){
+      clearTimeout(fetchTimeoutId);
+      hideThinkingDots(assistantTs);
+      throw e;
+    }
+  }
+
   // OpenRouter :online — append suffix to model name for server-side web search
   let effectiveModel = model;
   if(useOpenRouterOnline && !model.includes(':online')){
@@ -8003,6 +8615,8 @@ async function finalizeAssistantMessageContent(ts, content){
     rerenderMessageByTs(ts);
     persistSessions();
   }
+  maybeGenerateChatTitle(ts, ctx);
+  maybeAutoSpeakAssistantMessage(ts);
 }
 function replaceMessageContent(ts,newContent,streamingFlag=false){
   const session=getCurrentSession(); if(!session)return;

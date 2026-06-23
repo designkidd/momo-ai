@@ -4,6 +4,267 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2.22.12] — 2026-06-08
+### Changed — TTS 語義符號自然朗讀
+- TTS 不再一律移除所有符號；`&`、`%`、`+`、`=`、`×`、`<`、`>`、`@` 與常見貨幣符號會先轉成自然文字。
+- 其他標點與裝飾符號仍只用於停頓判斷，不送進語音引擎朗讀。
+
+---
+
+## [2.22.11] — 2026-06-08
+### Fixed — TTS 朗讀節奏恢復停頓
+- 修正移除符號朗讀後，Reading rhythm 在部分倍率下停頓感變弱或失效的問題。
+- TTS 現在仍會用原文標點切段與計算停頓，但送進語音引擎的文字不包含標點或符號。
+
+---
+
+## [2.22.10] — 2026-06-08
+### Fixed — 圖片回覆自動捲到底部
+- 修正貼圖後 AI 回覆包含圖片時，圖片載入造成訊息高度延後變化，畫面可能沒有捲到底部的問題。
+- 訊息圖片與 Markdown 圖片載入完成後會在 auto-follow 狀態下補捲到底部，避免最後文字被底部輸入區遮住。
+
+---
+
+## [2.22.9] — 2026-06-08
+### Changed — TTS 不朗讀符號
+- TTS 正式朗讀與 Preview 改為移除所有 Unicode 標點與符號，只保留各語言文字、數字與空白。
+- 標點仍會先用於分段停頓判斷，但不會送進語音引擎朗讀。
+
+---
+
+## [2.22.8] — 2026-06-08
+### Fixed — TTS 不再朗讀彎引號
+- 修正中文 TTS 可能把 `“”`、`‘’` 讀成「雙引號」等標點名稱的問題。
+- 正式朗讀與設定頁 Preview 都會在送入語音引擎前移除這類引號。
+
+---
+
+## [2.22.7] — 2026-06-08
+### Fixed — 動態 UI 語系刷新
+- 修正英文介面下 System Prompts 的 default badge 可能仍顯示「預設」的問題。
+- 語言切換時會同步刷新 JS 動態產生的 UI 文案，避免殘留上一個語系。
+
+---
+
+## [2.22.6] — 2026-06-08
+### Changed — Prompt Suggestions 新增項目
+- 預設 Prompt Suggestions 新增 `Continue writing` 與 `Outline`。
+- 升級時會自動把缺少的新增預設 suggestions 補到既有清單中。
+
+---
+
+## [2.22.5] — 2026-06-08
+### Fixed — Config 區塊語系翻譯
+- 設定頁 Config 區塊改為完整跟隨系統語言顯示。
+- 補齊繁中與簡中對 `Config`、`Import Config`、`Export Config` 及相關匯入 / 匯出提示訊息的翻譯。
+
+---
+
+## [2.22.4] — 2026-06-07
+### Changed — Prompt Suggestions 套用輸入文字
+- 點擊 Prompt Suggestion 時，如果輸入框已有文字，會將 suggestion 作為指令、既有輸入作為內容一起送出。
+- 輸入框為空時維持原本行為，直接送出該 suggestion prompt。
+
+---
+
+## [2.22.3] — 2026-06-07
+### Changed — MoMo system prompt 預設啟用
+- `MoMo` 預設 system prompt 改為 active，重設預設或新安裝時會直接啟用。
+- 升級時會將既有預設 `MoMo` 從隱藏狀態恢復為啟用，讓 sidepanel prompt selector 正常顯示。
+
+---
+
+## [2.22.2] — 2026-06-07
+### Changed — MoMo 預設 system prompt
+- 將 `MoMo` 預設 system prompt 改為更通用、精簡的助手人格。
+- 保留溫暖、簡潔、輕微 playful 的語氣，並加入同語言回覆、避免猜測、依任務調整回答方式等基本準則。
+
+---
+
+## [2.22.1] - 2026-06-07
+### Changed — System Prompts 預設精簡
+- 內建 System Prompts 預設只保留 `MoMo`。
+- 移除舊預設 `Assistant`、`Copywriter`、`Email Pro`、`Translator`。
+- 既有資料中的舊預設 prompts 會自動清理；使用者自訂 prompts 不會被刪除。
+
+---
+
+## [2.22.0] - 2026-06-07
+### Changed — Prompt Suggestions 預設內容
+- 內建 Prompt Suggestions 改為三個英文常用快捷提示：`Translate`、`Summarize`、`Improve writing`。
+- 不再為 prompt suggestion title 套用繁中 / 簡中翻譯；所有語系都顯示使用者設定的 title。
+- 既有三個預設 suggestions 會自動更新為新版內容；使用者自訂 suggestions 不會被覆蓋。
+
+---
+
+## [2.21.99] - 2026-06-07
+### Changed — Config nav 入口
+- 設定頁左側導航新增 Config 入口，可直接跳到匯入 / 匯出設定區塊。
+- 補齊 Config nav 的繁中、簡中與英文 i18n key。
+
+---
+
+## [2.21.98] - 2026-06-07
+### Fixed — 空 system prompt 隱藏 selector
+- 側邊欄只會在存在可見 system prompt 時顯示左上角 prompt dropdown；若沒有任何可見 system prompt，dropdown 會完全隱藏。
+- 空白 prompt 仍可出現在 dropdown 中供使用者選擇，但不會同步空白 system message 到對話。
+- 隱藏 prompt dropdown 時，歷史、新對話與設定按鈕仍維持在右上角，不會被推到左側。
+- 修正刪除最後一個 system prompt 時，空列表沒有寫入 storage，導致 sidepanel 仍顯示已刪除 prompt 的問題。
+
+---
+
+## [2.21.97] - 2026-06-07
+### Changed — Prompt Suggestions 中文標題
+- 繁中 / 簡中介面下，Prompt Suggestions 區塊標題改為「快捷提示」。
+- 預設 prompt suggestion title 增加繁中 / 簡中顯示名，例如「冷知識」「聽起來很厲害」「深度金句」。
+- 已保存的預設 suggestions 會自動補齊中文 title；自訂 suggestions 不會被覆蓋。
+
+---
+
+## [2.21.96] - 2026-06-07
+### Added — Config Import / Export
+- 在設定頁最底部新增 Config 區塊，支援匯出與匯入 JSON config，方便備份或分享設定。
+- 匯出內容包含 provider、models、prompts、prompt suggestions、TTS、page capture、web search、外觀與行為設定；不包含聊天記錄與圖片附件。
+- 匯出的 config 可能包含 API keys，UI 會提示避免公開分享。
+
+---
+
+## [2.21.95] - 2026-06-07
+### Fixed — Prompt Suggestions 引用頁面時序
+- 修正按下 Reference Page 後立即點 Prompt Suggestion 時，頁面內容可能尚未捕獲完成，導致送出的 user message 沒有帶入引用頁面內容的問題。
+- `onSend()` 現在會在送出前等待頁面引用捕獲完成，再檢查並附加 pending page context。
+
+---
+
+## [2.21.94] - 2026-06-07
+### Changed — System Prompts 預設隱藏
+- 預設 system prompts 改為全部不在對話窗口顯示，讓一般用戶先用 Prompt Suggestions 開始對話。
+- 當沒有任何可見 system prompt 時，sidepanel 會隱藏 prompt selector，並移除當前 session 內既有的 system message。
+- 既有預設 prompts 會在升級後自動轉為隱藏；自訂 prompts 不會被改動。
+
+---
+
+## [2.21.93] - 2026-06-07
+### Added — Prompt Suggestions 自訂管理
+- 將新對話首頁的快捷提示改為可自訂 Prompt Suggestions，設定入口放在 System Prompts 之下。
+- Prompt suggestion 支援「標題」與「完整 prompt」分離；對話框只顯示標題，點擊後送出完整 prompt。
+- 新增 suggestions 過多時的滾動顯示，避免首頁與設定頁被長列表撐開。
+
+---
+
+## [2.21.92] - 2026-06-07
+### Changed — TTS Voice 可用性過濾
+- 語音下拉預設只顯示 Chrome/Google 類較可靠 voices（`Google*` 或 `localService === false`），避免 macOS 系統 voices 被列出但播放時 fallback 到系統預設粵語。
+- 如果環境沒有可靠 voices，才 fallback 顯示全部 voices。
+- 若已保存的 voice 被過濾掉，會清空該設定，避免隱藏的不可用 voice 繼續被 sidepanel 使用。
+
+---
+
+## [2.21.91] - 2026-06-07
+### Fixed — TTS Voice 同步衝突
+- 新增 `ttsVoiceUpdatedAt`，sidepanel 讀取語音設定時會比較 local / sync 時間戳，使用最新一次選擇的 voice。
+- 修正 options 已顯示新語音，但 sidepanel 可能被舊 local 設定覆蓋而繼續使用系統粵語的問題。
+
+---
+
+## [2.21.90] - 2026-06-07
+### Fixed — TTS 手動語音優先
+- 強化「手動指定 voice 優先」策略：如果已保存的 voice 物件暫時無法在 sidepanel 匹配，不再直接 fallback 到中文/粵語聲音。
+- 會從保存的 composite voice id 讀取語言代碼並設定 `utterance.lang`，讓瀏覽器至少按使用者選定語音的語言 fallback。
+
+---
+
+## [2.21.89] - 2026-06-07
+### Fixed — TTS 語音選擇匹配
+- 修正只用 `voiceURI` 保存 TTS 語音時，macOS / Chrome 多語系系統聲音可能匹配到錯誤語音或 fallback 回系統預設粵語的問題。
+- 語音設定現在保存 `name + lang + voiceURI` composite id；sidepanel 與 preview 都用同一規則匹配，並將 `utterance.lang` 設為所選語音的語言。
+- 保留舊 `voiceURI` 設定兼容，既有使用者無需重設，但重新選一次語音可寫入更精準的新 id。
+
+---
+
+## [2.21.88] - 2026-06-07
+### Fixed — TTS 朗讀節奏停頓過長
+- 重新設計朗讀節奏實作：短/正常停頓會把多個句子合併成較長 utterance，使用常見句讀讓系統語音自然停頓，避免每句都觸發瀏覽器不可控的 utterance 邊界停頓。
+- 長停頓模式才拆成較短片段並加額外延遲，讓 slider 對「一句跟一句之間」的停頓更有實際差異。
+- Preview 與 sidepanel 實際朗讀使用相同節奏策略。
+
+---
+
+## [2.21.87] - 2026-06-07
+### Fixed — TTS 播放中設定更新
+- TTS 播放時會監聽本機設定變更，語速與音調 slider 調整後，從下一個分段開始使用最新值。
+- 保留 Web Speech 限制：已開始朗讀的單個語音片段無法中途改速，但下一段會套用新設定。
+
+---
+
+## [2.21.86] - 2026-06-07
+### Fixed — TTS 設定即時生效
+- 修正 sidepanel 朗讀只讀取 `chrome.storage.sync`，導致剛調整語速、音調或朗讀節奏後可能仍使用舊設定的問題。
+- sidepanel 現在讀取 `local + sync`，並以本機最新設定優先，讓 TTS slider 調整後立即影響實際朗讀。
+
+---
+
+## [2.21.85] - 2026-06-07
+### Changed — Page Context Limit 文案
+- 簡化「頁面內容字符數上限」說明，移除特定網站例子，改成更白話地解釋此設定會控制 AI 每次可讀取的頁面文字量與 token 成本。
+
+---
+
+## [2.21.84] - 2026-06-07
+### Fixed — Smart Capture 中文翻譯
+- 修正引用頁面內容設定中 Smart Capture 仍顯示英文的問題；繁中顯示為「智能擷取（推薦）」、簡中顯示為「智能抓取（推荐）」。
+- 補齊 `i18n.js` fallback 的 `captureSmart` / `captureVisible` 翻譯，並修正簡中提示內殘留的繁體「擷取」。
+
+---
+
+## [2.21.83] - 2026-06-07
+### Fixed — Language Dropdown 垂直中心
+- 微調 Language dropdown selector 的垂直位置，使選單中心與 Language 標題文字中心對齊。
+
+---
+
+## [2.21.82] - 2026-06-07
+### Fixed — TTS Preview Button 對齊
+- 修正 Text-to-Speech 的 Play Preview 按鈕被 grid 拉滿整行的問題；按鈕現在保持自然寬度並靠左對齊。
+
+---
+
+## [2.21.81] - 2026-06-07
+### Fixed — Language Dropdown 對齊
+- 修正 Language dropdown selector 文字過大與垂直位置偏低的問題；選單現在使用較小字號、較低控件高度，並與 Language 標題行對齊。
+
+---
+
+## [2.21.80] - 2026-06-07
+### Changed — 語言設定 Dropdown
+- 設定頁 General 的 Language 從三段 segmented control 改為 dropdown selector，採用左側標題/說明、右側選單的設定列樣式。
+- 保留原本 `zhVariant` 儲存與即時翻譯刷新流程，切換語言後 Provider hint、Thinking hint、OpenClaw session placeholder 與 TTS voice group 會同步更新。
+
+---
+
+## [2.21.79] - 2026-06-07
+### Changed — TTS 朗讀節奏
+- TTS 不再把標點符號直接送給系統語音朗讀，但會保留標點作為停頓邊界，避免朗讀變成完全無停頓。
+- 設定頁新增「朗讀節奏」slider，可調整逗號、句號、換行等停頓長短；試聽與實際對話朗讀共用同一套分段節奏。
+
+---
+
+## [2.21.78] - 2026-06-07
+### Changed — Custom Provider 圖示
+- Custom provider 改用 settings gear 圖示，參考 Icons8 Apple SF Regular Settings icon 的語意風格，但使用自製 SVG，避免直接引入第三方授權資產。
+
+---
+
+## [2.21.77] - 2026-06-07
+### Fixed — AI Provider 圖示
+- 改用 LobeHub `@lobehub/icons-static-svg` 圖示資產，替換新增 provider 的通用佔位圖示。
+- Anthropic、xAI、Vercel、Together AI、Hugging Face、Mistral、Novita AI、BigModel (Zhipu) 現在使用對應品牌 SVG。
+- Chutes 使用官方網站 favicon 作為 provider icon。
+- Custom 改為通用 chip 圖示，不再顯示 Momo 佔位圖。
+- 深色模式新增彩色 provider icon 的 filter 排除，避免品牌色被反白。
+
+---
+
 ## [2.21.76] — 2026-06-06
 ### Changed — 使用者說明書更新
 - 更新 `site/` 指南：產品名稱、20+ AI 供應商、自動對話標題、TTS 自動朗讀、設定頁說明。

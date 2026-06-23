@@ -36,9 +36,13 @@
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
           <span data-i18n="navTts">語音朗讀</span>
         </a>
-        <a class="nav-item" href="#sec-prompts" data-sections="sec-prompts">
+        <a class="nav-item" href="#sec-prompts" data-sections="sec-prompts,sec-prompt-suggestions">
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           <span data-i18n="navPrompts">提示詞</span>
+        </a>
+        <a class="nav-item" href="#sec-config-backup" data-sections="sec-config-backup">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7 12 12l8.7-5M12 22V12"/></svg>
+          <span data-i18n="navConfig">設定備份</span>
         </a>
       </nav>
     </aside>
@@ -52,12 +56,16 @@
 
       <!-- Language -->
       <section id="sec-language" class="section section-compact">
-        <h2 class="section-title" data-i18n="language">語言設定</h2>
-        <p class="hint" data-i18n="languageHint">選擇介面顯示語言。</p>
-        <div id="languageSegment" class="seg-group">
-          <button type="button" class="seg-btn" data-lang="hant" data-i18n="langHant">繁體中文</button>
-          <button type="button" class="seg-btn" data-lang="hans" data-i18n="langHans">简体中文</button>
-          <button type="button" class="seg-btn" data-lang="en" data-i18n="langEn">English</button>
+        <div class="language-setting-row">
+          <div class="language-copy">
+            <h2 class="section-title" data-i18n="language">語言設定</h2>
+            <p class="hint" data-i18n="languageHint">選擇介面顯示語言。</p>
+          </div>
+          <select id="languageSelect" class="input language-select" aria-label="Language">
+            <option value="hant" data-i18n="langHant">繁體中文</option>
+            <option value="hans" data-i18n="langHans">简体中文</option>
+            <option value="en" data-i18n="langEn">English</option>
+          </select>
         </div>
       </section>
 
@@ -123,6 +131,17 @@
         <p class="hint" data-i18n="freshChatOnPanelOpenHint">重新打開側邊欄時自動開始新對話；關閉後會延續上次對話。</p>
       </section>
 
+      <section id="sec-chat-titles" class="section section-compact">
+        <div class="section-header">
+          <h2 class="section-title" data-i18n="autoGenerateChatTitles">自動生成對話標題</h2>
+          <label class="switch" data-i18n-aria-label="autoGenerateChatTitles" aria-label="Auto-generate chat titles">
+            <input type="checkbox" id="autoGenerateChatTitles">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <p class="hint" data-i18n="autoGenerateChatTitlesHint">AI 第一輪回覆完成後，自動把歷史對話標題改成簡短摘要；手動重新命名後不會再覆蓋。</p>
+      </section>
+
       <!-- Open Sidebar Shortcut -->
       <section id="sec-shortcut" class="section section-compact">
         <h2 class="section-title" data-i18n="shortcutOpenSidebar">開啟側邊欄快捷鍵</h2>
@@ -146,6 +165,22 @@
             <span class="dropdown-arrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
           </div>
           <div id="providerDropdown" class="provider-dropdown hidden">
+            <div class="provider-option" data-provider="custom">
+              <img src="assets/icons/custom.svg" class="provider-icon" alt="Custom">
+              <span>Custom</span>
+            </div>
+            <div class="provider-option" data-provider="anthropic">
+              <img src="assets/icons/anthropic.svg" class="provider-icon" alt="Anthropic">
+              <span>Anthropic (Claude)</span>
+            </div>
+            <div class="provider-option" data-provider="xai">
+              <img src="assets/icons/xai.svg" class="provider-icon" alt="xAI">
+              <span>xAI</span>
+            </div>
+            <div class="provider-option" data-provider="vercel">
+              <img src="assets/icons/vercel.svg" class="provider-icon" alt="Vercel AI Gateway">
+              <span>Vercel AI Gateway</span>
+            </div>
             <div class="provider-option" data-provider="deepseek">
               <img src="assets/icons/deepseek.svg" class="provider-icon" alt="DeepSeek">
               <span>DeepSeek</span>
@@ -157,6 +192,30 @@
             <div class="provider-option" data-provider="groq">
               <img src="assets/icons/groq.svg" class="provider-icon" alt="Groq">
               <span>Groq</span>
+            </div>
+            <div class="provider-option" data-provider="together">
+              <img src="assets/icons/together-color.svg" class="provider-icon" alt="Together AI">
+              <span>Together AI</span>
+            </div>
+            <div class="provider-option" data-provider="huggingface">
+              <img src="assets/icons/huggingface-color.svg" class="provider-icon" alt="Hugging Face">
+              <span>Hugging Face</span>
+            </div>
+            <div class="provider-option" data-provider="mistral">
+              <img src="assets/icons/mistral-color.svg" class="provider-icon" alt="Mistral">
+              <span>Mistral</span>
+            </div>
+            <div class="provider-option" data-provider="novita">
+              <img src="assets/icons/novita-color.svg" class="provider-icon" alt="Novita AI">
+              <span>Novita AI</span>
+            </div>
+            <div class="provider-option" data-provider="chutes">
+              <img src="assets/icons/chutes.png" class="provider-icon" alt="Chutes">
+              <span>Chutes</span>
+            </div>
+            <div class="provider-option" data-provider="bigmodel">
+              <img src="assets/icons/zhipu-color.svg" class="provider-icon" alt="BigModel">
+              <span>BigModel (Zhipu)</span>
             </div>
             <div class="provider-option" data-provider="hermes">
               <img src="assets/icons/hermes.svg" class="provider-icon" alt="Hermes">
@@ -400,7 +459,7 @@
         <div class="form-field">
           <label class="field-label" for="pageContextLimit" data-i18n="pageContextLimit">頁面內容字符數上限</label>
           <input id="pageContextLimit" type="number" class="input" min="1000" max="200000" step="1000" placeholder="20000">
-          <p class="hint" data-i18n="pageContextLimitHint">設定每次引用頁面時發送給 AI 的最大字符數（建議：20000-100000），包含頁面標題、URL、正文等全部內容。數值越大，可捕獲的內容越多，但也會消耗更多 token。Amazon 等複雜頁面建議設置 100000 以上。</p>
+          <p class="hint" data-i18n="pageContextLimitHint">設定每次引用頁面時，最多交給 AI 讀取多少文字（建議 20000-100000）。一般保持預設即可；如果頁面很長或內容常被截斷，再把數值調高。數值越大，AI 看到的內容越多，也會用更多 token。</p>
           <p class="hint hint-secondary" data-i18n="pageContextLimitHint2">✨ 智能捕獲：插件會自動檢測虛擬滾動網站（如 Amazon、Twitter、Reddit 等），並使用智能滾動模式自動捕獲完整內容。<strong>點擊「引用頁面」按鈕</strong>後，頁面會自動滾動並累積所有內容（需時 10-30 秒），捕獲完成後內容會自動添加到對話中。可多次點擊重新捕獲最新內容。</p>
         </div>
       </section>
@@ -409,6 +468,15 @@
       <section id="sec-tts" class="section">
         <h2 class="section-title" data-i18n="ttsSettings">語音朗讀</h2>
         <p class="hint" data-i18n="ttsHint">設定 AI 回覆朗讀時的語音、語速與音調。</p>
+
+        <div class="section-header tts-auto-read-row">
+          <h3 class="section-subtitle" data-i18n="ttsAutoRead">自動朗讀 AI 回覆</h3>
+          <label class="switch" data-i18n-aria-label="ttsAutoRead" aria-label="Auto read AI replies">
+            <input type="checkbox" id="ttsAutoRead">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <p class="hint tts-auto-read-hint" data-i18n="ttsAutoReadHint">AI 回覆完成後自動朗讀；手動點擊朗讀按鈕仍可隨時播放或停止。</p>
 
         <div class="form-grid">
           <label class="field-label" for="ttsVoiceSelect" data-i18n="ttsVoice">語音</label>
@@ -443,7 +511,21 @@
           </div>
         </div>
 
-        <div class="form-grid" style="margin-top:12px;">
+        <div class="form-grid">
+          <label class="field-label" for="ttsPauseSlider" data-i18n="ttsPause">朗讀節奏</label>
+          <div class="slider-container">
+            <div class="slider-labels">
+              <span class="slider-label" data-i18n="ttsPauseShort">短停頓</span>
+              <span class="slider-label" data-i18n="ttsPauseLong">長停頓</span>
+            </div>
+            <div class="slider-wrapper">
+              <input type="range" id="ttsPauseSlider" class="size-slider" min="0.5" max="1.8" value="1.0" step="0.1">
+              <div class="slider-value" id="ttsPauseValue">1.0x</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-grid tts-preview-row" style="margin-top:12px;">
           <label class="field-label" data-i18n="ttsPreview">試聽</label>
           <button id="ttsPreviewBtn" class="btn btn-outline small" data-i18n="ttsPreviewBtn">播放預覽</button>
         </div>
@@ -461,6 +543,37 @@
         <div id="promptCardList" class="sp-list"></div>
 <div class="sp-actions-inline">
           <button id="btnAddPrompt" class="btn btn-outline pill" data-i18n="addPrompt">新增提示詞</button>
+        </div>
+      </section>
+
+      <!-- Prompt Suggestions -->
+      <section id="sec-prompt-suggestions" class="section prompt-suggestions-section">
+        <h2 class="section-title" data-i18n="promptSuggestions">Prompt Suggestions</h2>
+        <p class="hint" data-i18n="promptSuggestionsHint">Manage quick-start prompts shown on a new chat. Only titles are shown in the chat window.</p>
+        <div id="suggestionCardList" class="sp-list suggestion-config-list"></div>
+        <div class="sp-actions-inline">
+          <button id="btnAddSuggestion" class="btn btn-outline pill" data-i18n="addSuggestion">Add suggestion</button>
+        </div>
+      </section>
+
+      <!-- Config Backup -->
+      <section id="sec-config-backup" class="section section-compact config-backup-section">
+        <h2 class="section-title" data-i18n="configBackup">設定備份</h2>
+        <p class="hint" data-i18n="configBackupHint">匯出或匯入設定，方便備份或分享。匯出的設定可能包含 API keys。</p>
+        <div class="config-row">
+          <div>
+            <h3 class="config-row-title" data-i18n="importConfig">匯入設定</h3>
+            <p class="hint config-row-hint" data-i18n="importConfigHint">載入之前匯出的 JSON 設定，並覆蓋目前設定。</p>
+          </div>
+          <button id="btnImportConfig" class="btn btn-outline" data-i18n="import">匯入</button>
+          <input id="configImportFile" type="file" accept="application/json,.json" hidden>
+        </div>
+        <div class="config-row">
+          <div>
+            <h3 class="config-row-title" data-i18n="exportConfig">匯出設定</h3>
+            <p class="hint config-row-hint" data-i18n="exportConfigHint">下載設定 JSON。聊天記錄和圖片附件不會包含在內。</p>
+          </div>
+          <button id="btnExportConfig" class="btn btn-outline" data-i18n="export">匯出</button>
         </div>
       </section>
 
@@ -514,6 +627,20 @@
     </div>
   </template>
 
+  <template id="tplSuggestionCard">
+    <div class="sp-card suggestion-config-card" data-id="">
+      <div class="sp-title" title=""></div>
+      <div class="sp-icons">
+        <button class="sp-icon sg-edit" data-i18n-title="edit" title="編輯">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button class="sp-icon sg-delete" data-i18n-title="delete" title="刪除">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        </button>
+      </div>
+    </div>
+  </template>
+
   <!-- Prompt Edit Modal -->
   <div id="promptModal" class="prompt-modal" role="dialog" aria-modal="true" hidden>
     <div class="prompt-modal-backdrop"></div>
@@ -535,6 +662,31 @@
       </div>
       <div class="sp-editor-actions">
         <button class="btn btn-primary sp-update" data-i18n="updatePrompt">儲存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Prompt Suggestion Edit Modal -->
+  <div id="suggestionModal" class="prompt-modal" role="dialog" aria-modal="true" hidden>
+    <div class="prompt-modal-backdrop"></div>
+    <div class="prompt-modal-box">
+      <div class="sp-editor-head">
+        <h3 class="sp-editor-title" data-i18n="editSuggestion">Edit suggestion</h3>
+        <button class="sp-editor-close suggestion-modal-close" data-i18n-title="close" title="關閉">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="sp-field">
+        <label><span data-i18n="suggestionTitle">Title</span> <span class="req" data-i18n="required">*</span></label>
+        <input type="text" class="sp-field-input sg-edit-title" data-i18n-placeholder="suggestionTitlePlaceholder" placeholder="Short title shown in chat">
+      </div>
+      <div class="sp-field">
+        <label><span data-i18n="suggestionPrompt">Prompt</span> <span class="req" data-i18n="required">*</span></label>
+        <textarea class="sp-field-input sg-edit-prompt" data-i18n-placeholder="suggestionPromptPlaceholder" placeholder="Full prompt to send..."></textarea>
+        <div class="sp-foot-note" data-i18n="suggestionPromptHint">The chat window displays the title only; clicking it sends this full prompt.</div>
+      </div>
+      <div class="sp-editor-actions">
+        <button class="btn btn-primary sg-update" data-i18n="updateSuggestion">Save suggestion</button>
       </div>
     </div>
   </div>

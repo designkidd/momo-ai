@@ -9,6 +9,8 @@ const VERSION = 'ui-design-system-2026-04-05';
 
 let currentProvider = 'qwen';
 let providersData = {};
+let ttsPreviewTimer = null;
+let ttsPreviewRunId = 0;
 function _defaultLang() {
   return (typeof window.__detectBrowserLanguage === 'function') ? window.__detectBrowserLanguage() : 'en';
 }
@@ -443,14 +445,23 @@ function loadProviderConfig(providerId){
 
     // 針對不同 Provider 添加 API Key 申請連結提示
     const apiKeyLinks = {
+      anthropic: 'https://console.anthropic.com/settings/keys',
+      bigmodel: 'https://bigmodel.cn/usercenter/proj-mgmt/apikeys',
+      chutes: 'https://chutes.ai/app/api',
       google: 'https://aistudio.google.com/api-keys',
       openai: 'https://platform.openai.com/api-keys',
       deepseek: 'https://platform.deepseek.com/api_keys',
+      huggingface: 'https://huggingface.co/settings/tokens',
+      mistral: 'https://console.mistral.ai/api-keys',
       qwen: 'https://dashscope.console.aliyun.com/apiKeys',
       moonshot: 'https://platform.moonshot.ai/console/api-keys',
+      novita: 'https://novita.ai/settings/key-management',
       nvidia: 'https://build.nvidia.com/settings/api-keys',
       minimax: 'https://platform.minimax.io/user-center/basic-information/interface-key',
       openrouter: 'https://openrouter.ai/keys',
+      together: 'https://api.together.xyz/settings/api-keys',
+      vercel: 'https://vercel.com/account/ai',
+      xai: 'https://console.x.ai/',
       ollama: 'https://ollama.com/settings/keys',
       groq: 'https://console.groq.com/keys',
       hermes: 'https://hermes-agent.nousresearch.com/docs/user-guide/features/api-server'
@@ -751,10 +762,11 @@ function cacheDom(){
     secOpenclawToggle: $('#sec-openclaw-toggle'),
     openclawModelToggle: $('#openclawModelToggle'),
 
-    languageSegment: $('#languageSegment'),
+    languageSelect: $('#languageSelect'),
     themeSegment: $('#themeSegment'),
     showFloatBall: $('#showFloatBall'),
     freshChatOnPanelOpen: $('#freshChatOnPanelOpen'),
+    autoGenerateChatTitles: $('#autoGenerateChatTitles'),
     messageSizeSlider: $('#messageSizeSlider'),
     messageSizeValue: $('#messageSizeValue'),
     messageWeightSelect: $('#messageWeightSelect'),
@@ -764,12 +776,20 @@ function cacheDom(){
     ttsRateValue: $('#ttsRateValue'),
     ttsPitchSlider: $('#ttsPitchSlider'),
     ttsPitchValue: $('#ttsPitchValue'),
+    ttsPauseSlider: $('#ttsPauseSlider'),
+    ttsPauseValue: $('#ttsPauseValue'),
+    ttsAutoRead: $('#ttsAutoRead'),
     ttsPreviewBtn: $('#ttsPreviewBtn'),
 
     promptCardList: $('#promptCardList'),
     promptEditorMount: $('#promptEditorMount'),
     btnAddPrompt: $('#btnAddPrompt'),
     btnResetPrompts: $('#btnResetPrompts'),
+    suggestionCardList: $('#suggestionCardList'),
+    btnAddSuggestion: $('#btnAddSuggestion'),
+    btnImportConfig: $('#btnImportConfig'),
+    btnExportConfig: $('#btnExportConfig'),
+    configImportFile: $('#configImportFile'),
 
     saveStatus: $('#saveStatus'),
 
@@ -793,6 +813,7 @@ function cacheDom(){
 
     tplModelRow: $('#tplModelRow'),
     tplPromptCard: $('#tplPromptCard'),
+    tplSuggestionCard: $('#tplSuggestionCard'),
     tplPromptEditor: $('#tplPromptEditor')
   });
 }
@@ -981,6 +1002,16 @@ function bindEvents(){
     });
   }
 
+  if(els.autoGenerateChatTitles){
+    els.autoGenerateChatTitles.addEventListener('change',()=>{
+      const enabled = !!els.autoGenerateChatTitles.checked;
+      chrome.storage.local.set({ autoGenerateChatTitles: enabled });
+      chrome.storage.sync.set({ autoGenerateChatTitles: enabled }, ()=>{
+        setStatus(t('chatTitleSettingsUpdated'),'success');
+      });
+    });
+  }
+
   // Open shortcuts page button
   const btnOpenShortcutsPage = document.getElementById('btnOpenShortcutsPage');
   if (btnOpenShortcutsPage) {
@@ -990,15 +1021,14 @@ function bindEvents(){
   }
   
   // 語言設定（繁體 / 簡體 / 英文）
-  if(els.languageSegment){
-    els.languageSegment.addEventListener('click', e=>{
-      const btn=e.target.closest('.seg-btn'); if(!btn) return;
-      const lang=btn.dataset.lang;
-      chrome.storage.local.set({ zhVariant: lang }, ()=>{
+  if(els.languageSelect){
+    els.languageSelect.addEventListener('change', ()=>{
+      const lang = els.languageSelect.value;
+      chrome.storage.local.set({ zhVariant: lang }, async ()=>{
         chrome.storage.sync.set({ zhVariant: lang });
         currentLang = lang;
-        [...els.languageSegment.querySelectorAll('.seg-btn')].forEach(b=>b.classList.toggle('active', b.dataset.lang===lang));
-        applyLanguageConversion();
+        await applyLanguageConversion();
+        els.languageSelect._cselRefresh?.();
         loadProviderConfig(currentProvider);
         updateThinkingHint(currentProvider);
         updateOpenClawSessionPlaceholder();
@@ -1063,6 +1093,11 @@ function bindEvents(){
   els.btnAddPrompt.addEventListener('click', addPromptCard);
   els.btnResetPrompts.addEventListener('click', resetPrompts);
   els.promptCardList.addEventListener('click', promptCardClick);
+  els.btnAddSuggestion?.addEventListener('click', addSuggestionCard);
+  els.suggestionCardList?.addEventListener('click', suggestionCardClick);
+  els.btnExportConfig?.addEventListener('click', exportConfig);
+  els.btnImportConfig?.addEventListener('click', ()=>els.configImportFile?.click());
+  els.configImportFile?.addEventListener('change', importConfigFromFile);
 }
 
 /* ---------- Load All ---------- */
@@ -1077,21 +1112,21 @@ async function loadAll(){
     chrome.storage.local.get([
       'apiKey','apiEndpoint','customModels',
       'providerDataMigrated',
-      'zhVariant','theme','messageSize','messageWeight','showFloatBall','freshChatOnPanelOpen',
-      'ttsVoice','ttsRate','ttsPitch', // TTS settings
+      'zhVariant','theme','messageSize','messageWeight','showFloatBall','freshChatOnPanelOpen','autoGenerateChatTitles',
+      'ttsVoice','ttsVoiceUpdatedAt','ttsRate','ttsPitch','ttsPause','ttsAutoRead', // TTS settings
       'pageCaptureMode','pageCaptureInclude','pageCaptureExclude',
       'pageCaptureCustomInclude','pageCaptureCustomExclude','pageContextLimit',
-      'prompts','defaultPrompt','selectedPrompt', // 提示詞保存在本地
+      'prompts','defaultPrompt','selectedPrompt','promptSuggestions', // 提示詞保存在本地
       ...providerKeys  // 本地備份，供遷移用
     ]),
     chrome.storage.sync.get([
-      'theme','activeProvider','messageWeight','messageSize','showFloatBall','freshChatOnPanelOpen',
-      'ttsVoice','ttsRate','ttsPitch',
+      'theme','activeProvider','messageWeight','messageSize','showFloatBall','freshChatOnPanelOpen','autoGenerateChatTitles',
+      'ttsVoice','ttsVoiceUpdatedAt','ttsRate','ttsPitch','ttsPause','ttsAutoRead',
       'pageCaptureMode','pageCaptureInclude','pageCaptureExclude',
       'pageCaptureCustomInclude','pageCaptureCustomExclude',
       'pageContextLimit','zhVariant',
-      'prompts','defaultPrompt','selectedPrompt',
-      'promptsVersion','deletedDefaultPrompts',
+      'prompts','defaultPrompt','selectedPrompt','promptSuggestions',
+      'promptsVersion','promptSuggestionsVersion','deletedDefaultPrompts',
       ...providerKeys
     ])
   ]);
@@ -1210,10 +1245,13 @@ async function loadAll(){
   if(els.freshChatOnPanelOpen){
     els.freshChatOnPanelOpen.checked = merged.freshChatOnPanelOpen !== false;
   }
+  if(els.autoGenerateChatTitles){
+    els.autoGenerateChatTitles.checked = merged.autoGenerateChatTitles !== false;
+  }
 
   currentLang = merged.zhVariant || _defaultLang();
-  if(els.languageSegment){
-    [...els.languageSegment.querySelectorAll('.seg-btn')].forEach(b=>b.classList.toggle('active', b.dataset.lang===currentLang));
+  if(els.languageSelect){
+    els.languageSelect.value = currentLang;
   }
   if(typeof window.__applyTranslations === 'function'){
     try{ await window.__applyTranslations(currentLang); }catch(err){
@@ -1296,6 +1334,14 @@ async function loadAll(){
   // If prompts version is outdated, add any NEW default prompts
   if(storedVersion < PROMPTS_VERSION && promptList){
     console.log(`Updating prompts from version ${storedVersion} to ${PROMPTS_VERSION}`);
+    const removedDefaultIds = new Set(typeof REMOVED_DEFAULT_PROMPT_IDS !== 'undefined' ? REMOVED_DEFAULT_PROMPT_IDS : []);
+    if(removedDefaultIds.size){
+      const beforeCount = promptList.length;
+      promptList = promptList.filter(p=>!removedDefaultIds.has(p?.id));
+      if(beforeCount !== promptList.length && removedDefaultIds.has(selectedPromptId)){
+        selectedPromptId = DEFAULT_PROMPT_ID;
+      }
+    }
     
     // Get existing prompt IDs
     const existingIds = promptList.map(p => p.id);
@@ -1311,6 +1357,17 @@ async function loadAll(){
     if(newDefaults.length > 0){
       promptList = [...promptList, ...newDefaults];
       console.log(`Added ${newDefaults.length} new default prompts`);
+    }
+    let defaultVisibilityChanged = false;
+    promptList = promptList.map(p=>{
+      if(p.id === DEFAULT_PROMPT_ID && p.visible === false){
+        defaultVisibilityChanged = true;
+        return { ...p, visible:true };
+      }
+      return p;
+    });
+    if(defaultVisibilityChanged){
+      console.log('[OPT] Default MoMo system prompt enabled by default');
     }
     
     // Just update the version number
@@ -1335,6 +1392,35 @@ async function loadAll(){
     await chrome.storage.sync.set({ promptsVersion: PROMPTS_VERSION });
   }
   renderPromptCards(promptList, selectedPromptId);
+
+  let suggestionList = Array.isArray(local.promptSuggestions) ? local.promptSuggestions : null;
+  if(!suggestionList && Array.isArray(sync.promptSuggestions) && sync.promptSuggestions.length > 0){
+    suggestionList = sync.promptSuggestions;
+    await chrome.storage.local.set({ promptSuggestions: suggestionList });
+    await chrome.storage.sync.remove(['promptSuggestions']);
+  }
+  if(!suggestionList || !suggestionList.length){
+    suggestionList = cloneDefaultPromptSuggestions();
+    await chrome.storage.local.set({ promptSuggestions: suggestionList });
+    await chrome.storage.sync.set({ promptSuggestionsVersion: PROMPT_SUGGESTIONS_VERSION });
+  }else if((sync.promptSuggestionsVersion || 1) < PROMPT_SUGGESTIONS_VERSION){
+    const defaults = new Map(DEFAULT_PROMPT_SUGGESTIONS.map(item=>[item.id, item]));
+    suggestionList = suggestionList.map(item=>{
+      const def = defaults.get(item?.id);
+      return def ? { ...def } : item;
+    });
+    const existingSuggestionIds = new Set(suggestionList.map(item=>item?.id));
+    DEFAULT_PROMPT_SUGGESTIONS.forEach(def=>{
+      if(!existingSuggestionIds.has(def.id)){
+        suggestionList.push({ ...def });
+      }
+    });
+    await chrome.storage.local.set({ promptSuggestions: suggestionList });
+    await chrome.storage.sync.set({ promptSuggestionsVersion: PROMPT_SUGGESTIONS_VERSION });
+  }
+  suggestionList = normalizePromptSuggestionTitles(suggestionList);
+  await chrome.storage.local.set({ promptSuggestions: suggestionList });
+  renderSuggestionCards(suggestionList);
   
   // Update sidepanel with current provider's data
   updateMergedModels();
@@ -1369,11 +1455,38 @@ function applyThemeButtons(){
 
 /* ---------- TTS ---------- */
 let refreshTtsVoices = null;
+function makeTtsVoiceId(voice){
+  if(!voice) return '';
+  return [voice.name || '', voice.lang || '', voice.voiceURI || ''].join('||');
+}
+
+function getLangFromTtsVoiceId(voiceId){
+  return String(voiceId || '').split('||')[1] || '';
+}
+
+function resolveTtsVoice(voiceId){
+  if(!voiceId || !window.speechSynthesis) return null;
+  const voices = window.speechSynthesis.getVoices();
+  return voices.find(v => makeTtsVoiceId(v) === voiceId) ||
+    voices.find(v => v.voiceURI === voiceId) ||
+    null;
+}
+
+function isReliableTtsVoice(voice){
+  if(!voice) return false;
+  const name = String(voice.name || '');
+  // Chrome/Google voices are the most reliable in Chrome Web Speech. Some macOS
+  // system voices are listed but can fall back to the system default at playback.
+  return /^Google\b/i.test(name) || voice.localService === false;
+}
+
 function initTtsSettings(merged){
   if(!els.ttsVoiceSelect) return;
   const savedVoice = merged.ttsVoice || '';
   const savedRate = parseFloat(merged.ttsRate) || 1.0;
   const savedPitch = parseFloat(merged.ttsPitch) || 1.0;
+  const savedPause = parseFloat(merged.ttsPause) || 1.0;
+  const savedAutoRead = merged.ttsAutoRead === true;
 
   function populateVoices(){
     const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
@@ -1406,7 +1519,9 @@ function initTtsSettings(merged){
       return lang || t('ttsLangOther');
     }
 
-    const sorted = [...voices].sort((a,b) => {
+    const reliableVoices = voices.filter(isReliableTtsVoice);
+    const voicesForDisplay = reliableVoices.length ? reliableVoices : voices;
+    const sorted = [...voicesForDisplay].sort((a,b) => {
       const pa = langPriority(a.lang), pb = langPriority(b.lang);
       if(pa !== pb) return pa - pb;
       if(a.lang !== b.lang) return a.lang.localeCompare(b.lang);
@@ -1414,6 +1529,7 @@ function initTtsSettings(merged){
     });
 
     let lastGroup = '';
+    let savedVoiceMatched = !savedVoice;
     sorted.forEach(v => {
       const prefix = (v.lang||'').split(/[-_]/)[0].toLowerCase();
       if(prefix !== lastGroup){
@@ -1425,11 +1541,20 @@ function initTtsSettings(merged){
         els.ttsVoiceSelect.appendChild(grp);
       }
       const opt = document.createElement('option');
-      opt.value = v.voiceURI;
+      const voiceId = makeTtsVoiceId(v);
+      opt.value = voiceId;
       opt.textContent = `  ${v.name} (${v.lang})`;
-      if(v.voiceURI === savedVoice) opt.selected = true;
+      if(voiceId === savedVoice || v.voiceURI === savedVoice){
+        opt.selected = true;
+        savedVoiceMatched = true;
+      }
       els.ttsVoiceSelect.appendChild(opt);
     });
+    if(savedVoice && !savedVoiceMatched){
+      const ttsVoiceUpdatedAt = Date.now();
+      chrome.storage.local.set({ ttsVoice: '', ttsVoiceUpdatedAt });
+      chrome.storage.sync.set({ ttsVoice: '', ttsVoiceUpdatedAt });
+    }
   }
 
   refreshTtsVoices = populateVoices;
@@ -1446,14 +1571,142 @@ function initTtsSettings(merged){
     els.ttsPitchSlider.value = savedPitch;
     if(els.ttsPitchValue) els.ttsPitchValue.textContent = savedPitch.toFixed(1);
   }
+  if(els.ttsPauseSlider){
+    els.ttsPauseSlider.value = savedPause;
+    if(els.ttsPauseValue) els.ttsPauseValue.textContent = savedPause.toFixed(1) + 'x';
+  }
+  if(els.ttsAutoRead){
+    els.ttsAutoRead.checked = savedAutoRead;
+  }
+}
+
+function normalizeTtsPreviewSemanticSymbols(src=''){
+  const text = String(src || '');
+  const useCjk = /[\u3400-\u9fff]/.test(text);
+  const words = useCjk
+    ? { amp:' 和 ', percent:' 百分比 ', plus:' 加 ', equals:' 等於 ', times:' 乘 ', lt:' 小於 ', gt:' 大於 ', at:' at ', dollar:' 美元 ', euro:' 歐元 ', pound:' 英鎊 ', yen:' 日元 ' }
+    : { amp:' and ', percent:' percent ', plus:' plus ', equals:' equals ', times:' times ', lt:' less than ', gt:' greater than ', at:' at ', dollar:' dollars ', euro:' euros ', pound:' pounds ', yen:' yen ' };
+  return text
+    .replace(/&/g, words.amp)
+    .replace(/%/g, words.percent)
+    .replace(/\+/g, words.plus)
+    .replace(/=/g, words.equals)
+    .replace(/[×✕✖]/g, words.times)
+    .replace(/</g, words.lt)
+    .replace(/>/g, words.gt)
+    .replace(/@/g, words.at)
+    .replace(/\$/g, words.dollar)
+    .replace(/€/g, words.euro)
+    .replace(/£/g, words.pound)
+    .replace(/[¥￥]/g, words.yen);
+}
+
+function cleanTtsPreviewSegment(src=''){
+  return normalizeTtsPreviewSemanticSymbols(src)
+    .replace(/[\p{P}\p{S}]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function cleanTtsPreviewProsody(src=''){
+  return normalizeTtsPreviewSemanticSymbols(src)
+    .replace(/[\p{P}\p{S}]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function buildTtsPreviewSegments(src=''){
+  const parts = [];
+  let buf = '';
+
+  function push(pauseMs){
+    const text = cleanTtsPreviewSegment(buf);
+    const prosodyText = cleanTtsPreviewProsody(buf);
+    buf = '';
+    if(text) parts.push({ text, prosodyText: prosodyText || text, pauseMs });
+  }
+
+  for(const ch of String(src || '').replace(/\r\n?/g, '\n')){
+    if(ch === '\n'){
+      buf += '。';
+      push(700);
+    }else if(/[。！？!?；;]/.test(ch)){
+      buf += ch;
+      push(520);
+    }else if(/[：:]/.test(ch)){
+      buf += ch;
+      push(420);
+    }else if(/[，,、]/.test(ch)){
+      buf += ch;
+      push(240);
+    }else if(/[.…]/.test(ch)){
+      buf += ch;
+      push(560);
+    }else{
+      buf += ch;
+    }
+  }
+  push(0);
+  return parts;
+}
+
+function buildTtsPreviewPlaybackParts(segments, pauseScale=1){
+  const scale = Number.isFinite(pauseScale) ? pauseScale : 1;
+  const delayScale = scale <= 1.2
+    ? Math.max(0, scale * 0.55)
+    : scale * 0.85;
+  return segments.map(part => ({
+    text: part.text,
+    pauseMs: Math.round((part.pauseMs || 0) * delayScale)
+  }));
+}
+
+function speakPreviewSegments(segments, settings){
+  if(!window.speechSynthesis || !segments?.length) return;
+  const runId = ++ttsPreviewRunId;
+  if(ttsPreviewTimer){
+    clearTimeout(ttsPreviewTimer);
+    ttsPreviewTimer = null;
+  }
+  const pauseScale = parseFloat(settings.pause) || 1.0;
+  const playbackParts = buildTtsPreviewPlaybackParts(segments, pauseScale);
+  let idx = 0;
+  function speakNext(){
+    if(runId !== ttsPreviewRunId) return;
+    const segment = playbackParts[idx++];
+    if(!segment) return;
+    const utterance = new SpeechSynthesisUtterance(segment.text);
+    utterance.rate = parseFloat(settings.rate) || 1.0;
+    utterance.pitch = parseFloat(settings.pitch) || 1.0;
+    utterance.volume = 1.0;
+    utterance.lang = 'zh-CN';
+    const savedVoiceLang = getLangFromTtsVoiceId(settings.voiceURI);
+    if(savedVoiceLang) utterance.lang = savedVoiceLang;
+    if(settings.voiceURI){
+      const voice = resolveTtsVoice(settings.voiceURI);
+      if(voice){
+        utterance.voice = voice;
+        utterance.lang = voice.lang || utterance.lang;
+      }
+    }
+    utterance.onend = () => {
+      if(runId !== ttsPreviewRunId) return;
+      if(idx < playbackParts.length){
+        ttsPreviewTimer = setTimeout(speakNext, Math.max(0, Math.round(segment.pauseMs || 0)));
+      }
+    };
+    window.speechSynthesis.speak(utterance);
+  }
+  speakNext();
 }
 
 function bindTtsEvents(){
   if(els.ttsVoiceSelect){
     els.ttsVoiceSelect.addEventListener('change', ()=>{
       const val = els.ttsVoiceSelect.value;
-      chrome.storage.local.set({ ttsVoice: val });
-      chrome.storage.sync.set({ ttsVoice: val }, ()=> setStatus(t('ttsSaved'),'success'));
+      const ttsVoiceUpdatedAt = Date.now();
+      chrome.storage.local.set({ ttsVoice: val, ttsVoiceUpdatedAt });
+      chrome.storage.sync.set({ ttsVoice: val, ttsVoiceUpdatedAt }, ()=> setStatus(t('ttsSaved'),'success'));
     });
   }
   if(els.ttsRateSlider){
@@ -1472,22 +1725,37 @@ function bindTtsEvents(){
       chrome.storage.sync.set({ ttsPitch: val });
     });
   }
+  if(els.ttsPauseSlider){
+    els.ttsPauseSlider.addEventListener('input', ()=>{
+      const val = els.ttsPauseSlider.value;
+      if(els.ttsPauseValue) els.ttsPauseValue.textContent = parseFloat(val).toFixed(1) + 'x';
+      chrome.storage.local.set({ ttsPause: val });
+      chrome.storage.sync.set({ ttsPause: val });
+    });
+  }
+  if(els.ttsAutoRead){
+    els.ttsAutoRead.addEventListener('change', ()=>{
+      const enabled = !!els.ttsAutoRead.checked;
+      chrome.storage.local.set({ ttsAutoRead: enabled });
+      chrome.storage.sync.set({ ttsAutoRead: enabled }, ()=> setStatus(t('ttsSaved'),'success'));
+    });
+  }
   if(els.ttsPreviewBtn){
     els.ttsPreviewBtn.addEventListener('click', ()=>{
       if(!window.speechSynthesis) return;
+      ttsPreviewRunId++;
+      if(ttsPreviewTimer){
+        clearTimeout(ttsPreviewTimer);
+        ttsPreviewTimer = null;
+      }
       window.speechSynthesis.cancel();
       const sampleText = t('ttsPreviewText') || 'Hello, this is a voice preview test.';
-      const utterance = new SpeechSynthesisUtterance(sampleText);
-      utterance.rate = parseFloat(els.ttsRateSlider?.value) || 1.0;
-      utterance.pitch = parseFloat(els.ttsPitchSlider?.value) || 1.0;
-      utterance.volume = 1.0;
-      const voiceURI = els.ttsVoiceSelect?.value;
-      if(voiceURI){
-        const voice = window.speechSynthesis.getVoices().find(v => v.voiceURI === voiceURI);
-        if(voice) utterance.voice = voice;
-      }
-      utterance.lang = 'zh-CN';
-      window.speechSynthesis.speak(utterance);
+      speakPreviewSegments(buildTtsPreviewSegments(sampleText), {
+        rate: els.ttsRateSlider?.value,
+        pitch: els.ttsPitchSlider?.value,
+        pause: els.ttsPauseSlider?.value,
+        voiceURI: els.ttsVoiceSelect?.value
+      });
     });
   }
 }
@@ -1958,6 +2226,31 @@ async function testConnection(){
   btn.disabled=true; btn.textContent=t('testing'); setTestStatus(t('testing'));
 
   try{
+    if(currentProvider === 'anthropic'){
+      if(!apiKey) throw new Error(t('noApiKeyWarning'));
+      const messagesUrl = endpoint.replace(/\/+$/,'').replace(/\/messages$/,'').replace(/\/v1$/,'') + '/v1/messages';
+      const r = await fetch(messagesUrl, {
+        method:'POST',
+        headers: {
+          'Content-Type':'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: PROVIDER_DEFAULTS[currentProvider]?.testModel || getProviderPrimaryModelName(currentProvider),
+          messages:[{role:'user',content:'hello'}],
+          max_tokens:5
+        })
+      });
+      if(!r.ok){
+        const body = await r.text();
+        throw new Error('HTTP '+r.status+' '+body.slice(0,120));
+      }
+      setTestStatus(t('successChat'),'success');
+      btn.textContent=t('successLabel');
+      return;
+    }
     let ok=false;
     if(apiKey){
       const headers={ 'Authorization':'Bearer '+apiKey };
@@ -1973,7 +2266,7 @@ async function testConnection(){
       const headers={ 'Content-Type':'application/json' };
       if(apiKey) headers.Authorization='Bearer '+apiKey;
       const chatUrl=buildChatCompletionsUrl(endpoint);
-      const testModel = PROVIDER_DEFAULTS[currentProvider]?.testModel || 'gpt-3.5-turbo';
+      const testModel = PROVIDER_DEFAULTS[currentProvider]?.testModel || getProviderPrimaryModelName(currentProvider) || 'gpt-3.5-turbo';
       const r2=await fetch(chatUrl,{
         method:'POST',
         headers,
@@ -2282,6 +2575,13 @@ function updateDefaultBadge(card, isDefault){
   }
 }
 
+function refreshDynamicI18n(){
+  els.promptCardList?.querySelectorAll('.sp-card').forEach(card=>{
+    updateDefaultBadge(card, !!card.querySelector('.sp-radio')?.checked);
+  });
+  els.modelList?.querySelectorAll('.model-row').forEach(applyModelRowI18n);
+}
+
 function promptCardClick(e){
   const card=e.target.closest('.sp-card');
   if(!card) return;
@@ -2358,8 +2658,8 @@ async function resetPrompts(){
   console.log('[OPT] Cleared deletedDefaultPrompts');
   
   // 2. Clear old prompts from both storages
-  await chrome.storage.local.remove(['prompts', 'defaultPrompt', 'selectedPrompt']);
-  await chrome.storage.sync.remove(['prompts', 'defaultPrompt', 'selectedPrompt']);
+  await chrome.storage.local.remove(['prompts', 'defaultPrompt', 'selectedPrompt', 'promptSuggestions']);
+  await chrome.storage.sync.remove(['prompts', 'defaultPrompt', 'selectedPrompt', 'promptSuggestions']);
   console.log('[OPT] Cleared old prompts from both storages');
   
   // 3. Reset prompts — always write to local so sidepanel storage listener fires correctly
@@ -2421,6 +2721,10 @@ async function resetPrompts(){
   
   // 5. Render prompts UI
   renderPromptCards(defaultPrompts, DEFAULT_PROMPT_ID);
+  const defaultSuggestions = cloneDefaultPromptSuggestions();
+  await chrome.storage.local.set({ promptSuggestions: defaultSuggestions });
+  await chrome.storage.sync.set({ promptSuggestionsVersion: PROMPT_SUGGESTIONS_VERSION });
+  renderSuggestionCards(defaultSuggestions);
   closeEditor();
   
   setStatus(tpl('resetComplete',{count:defaultPrompts.length}),'success');
@@ -2558,14 +2862,13 @@ function collectPromptsFromUI(){
 
 function persistPrompts(){
   const { prompts, selectedPrompt } = collectPromptsFromUI();
-  const finalSelected=selectedPrompt || prompts[0]?.id || DEFAULT_PROMPT_ID;
+  const finalSelected=selectedPrompt || prompts[0]?.id || '';
   
   console.log('[OPT] persistPrompts - Collected prompts:', prompts.map(p => ({ id: p.id, name: p.name })));
   console.log('[OPT] persistPrompts - Selected:', finalSelected);
   
-  // 驗證收集到的數據
-  if(!Array.isArray(prompts) || prompts.length === 0){
-    console.error('[OPT] persistPrompts - No prompts collected or invalid data!');
+  if(!Array.isArray(prompts)){
+    console.error('[OPT] persistPrompts - Invalid prompts data!');
     setStatus(t('saveFailed')+': '+t('noPromptData'),'error');
     return;
   }
@@ -2595,10 +2898,285 @@ function persistPrompts(){
 }
 function persistPromptsSilently(){
   const { prompts, selectedPrompt } = collectPromptsFromUI();
-  const finalSelected=selectedPrompt || prompts[0]?.id || DEFAULT_PROMPT_ID;
+  const finalSelected=selectedPrompt || prompts[0]?.id || '';
   
   // 強制使用本地存儲
   chrome.storage.local.set({ prompts, defaultPrompt: finalSelected });
+}
+
+/* ---------- Prompt Suggestions ---------- */
+function renderSuggestionCards(list){
+  if(!els.suggestionCardList) return;
+  els.suggestionCardList.innerHTML='';
+  list.forEach(s=>appendSuggestionCard(s));
+}
+
+function normalizePromptSuggestionTitles(list){
+  if(!Array.isArray(list)) return [];
+  const defaults = typeof DEFAULT_PROMPT_SUGGESTIONS !== 'undefined' ? DEFAULT_PROMPT_SUGGESTIONS : [];
+  const byId = new Map(defaults.map(item=>[item.id, item]));
+  return list.map(item=>{
+    if(!item || typeof item!=='object') return item;
+    const def = byId.get(item.id);
+    if(!def) return item;
+    return {
+      ...item,
+      title:item.title || def.title || '',
+      titleHant:'',
+      titleHans:''
+    };
+  });
+}
+
+function appendSuggestionCard(s){
+  if(!els.tplSuggestionCard || !els.suggestionCardList) return;
+  const card=els.tplSuggestionCard.content.firstElementChild.cloneNode(true);
+  card.dataset.id=s.id || uuid();
+  card.dataset.prompt=s.prompt || '';
+  card.dataset.title=s.title || '';
+  card.dataset.titleHant=s.titleHant || '';
+  card.dataset.titleHans=s.titleHans || '';
+  const title=card.querySelector('.sp-title');
+  title.innerHTML='';
+  const titleSpan=document.createElement('span');
+  const displayTitle = typeof localizePromptSuggestionTitle === 'function'
+    ? localizePromptSuggestionTitle(s, currentLang)
+    : (s.title || t('unnamed'));
+  titleSpan.textContent=displayTitle || t('unnamed');
+  titleSpan.title=displayTitle || t('unnamed');
+  title.appendChild(titleSpan);
+  els.suggestionCardList.appendChild(card);
+}
+
+function collectSuggestionsFromUI(){
+  const items=[...els.suggestionCardList.querySelectorAll('.suggestion-config-card')];
+  return items.map(c=>{
+    const title=c.dataset.title || c.querySelector('.sp-title span')?.textContent.trim() || t('unnamed');
+    return {
+      id:c.dataset.id || uuid(),
+      title,
+      titleHant:c.dataset.titleHant || '',
+      titleHans:c.dataset.titleHans || '',
+      prompt:c.dataset.prompt || title
+    };
+  });
+}
+
+function persistSuggestions(){
+  const promptSuggestions=collectSuggestionsFromUI();
+  chrome.storage.local.set({ promptSuggestions }, ()=>{
+    if(chrome.runtime.lastError){
+      setStatus(tpl('saveFailedMsg',{msg:chrome.runtime.lastError.message}),'error');
+      return;
+    }
+    chrome.storage.sync.remove(['promptSuggestions'], ()=>{});
+    setStatus(t('suggestionsSaved'),'success');
+  });
+}
+
+function addSuggestionCard(){
+  const item={ id:uuid(), title:t('newSuggestionName'), prompt:'' };
+  appendSuggestionCard(item);
+  persistSuggestions();
+  const card=els.suggestionCardList.querySelector(`.suggestion-config-card[data-id="${item.id}"]`);
+  openSuggestionEditor(card);
+}
+
+function suggestionCardClick(e){
+  const card=e.target.closest('.suggestion-config-card');
+  if(!card) return;
+  if(e.target.closest('.sg-edit')){
+    openSuggestionEditor(card);
+    return;
+  }
+  if(e.target.closest('.sg-delete')){
+    card.remove();
+    persistSuggestions();
+    setStatus(t('suggestionsSaved'),'success');
+  }
+}
+
+let currentSuggestionEditorId=null;
+function openSuggestionEditor(card){
+  if(!card) return;
+  const sid=card.dataset.id;
+  if(currentSuggestionEditorId===sid){ closeSuggestionEditor(); return; }
+  closeSuggestionEditor();
+
+  const modal=document.getElementById('suggestionModal');
+  const titleInput=modal.querySelector('.sg-edit-title');
+  const promptArea=modal.querySelector('.sg-edit-prompt');
+  const localizedTitle = card.querySelector('.sp-title span')?.textContent.trim() || '';
+  titleInput.value = currentLang === 'hant'
+    ? (card.dataset.titleHant || localizedTitle)
+    : currentLang === 'hans'
+      ? (card.dataset.titleHans || localizedTitle)
+      : (card.dataset.title || localizedTitle);
+  promptArea.value=card.dataset.prompt || '';
+
+  const saveChanges=()=>{
+    const newTitle=titleInput.value.trim() || t('unnamed');
+    const newPrompt=promptArea.value.trim() || newTitle;
+    const titleSpan=card.querySelector('.sp-title span');
+    if(titleSpan){
+      titleSpan.textContent=newTitle;
+      titleSpan.title=newTitle;
+    }
+    if(currentLang === 'hant'){
+      card.dataset.titleHant=newTitle;
+      if(!card.dataset.title) card.dataset.title=newTitle;
+    }else if(currentLang === 'hans'){
+      card.dataset.titleHans=newTitle;
+      if(!card.dataset.title) card.dataset.title=newTitle;
+    }else{
+      card.dataset.title=newTitle;
+    }
+    card.dataset.prompt=newPrompt;
+    persistSuggestions();
+  };
+
+  const oldClose=modal.querySelector('.suggestion-modal-close');
+  const oldSave=modal.querySelector('.sg-update');
+  const backdrop=modal.querySelector('.prompt-modal-backdrop');
+  const closeClone=oldClose.cloneNode(true);
+  const saveClone=oldSave.cloneNode(true);
+  oldClose.replaceWith(closeClone);
+  oldSave.replaceWith(saveClone);
+
+  closeClone.addEventListener('click', ()=>closeSuggestionEditor());
+  saveClone.addEventListener('click', ()=>{
+    saveChanges();
+    closeSuggestionEditor();
+  });
+  backdrop.onclick=()=>closeSuggestionEditor();
+  modal._escHandler=(e)=>{ if(e.key==='Escape') closeSuggestionEditor(); };
+  document.addEventListener('keydown', modal._escHandler);
+  modal.removeAttribute('hidden');
+  currentSuggestionEditorId=sid;
+  if(typeof window.__applyTranslations === 'function'){
+    window.__applyTranslations(currentLang).catch(()=>{});
+  }
+  titleInput.focus();
+}
+
+function closeSuggestionEditor(){
+  const modal=document.getElementById('suggestionModal');
+  if(modal){
+    modal.setAttribute('hidden','');
+    if(modal._escHandler){
+      document.removeEventListener('keydown', modal._escHandler);
+      modal._escHandler=null;
+    }
+  }
+  currentSuggestionEditorId=null;
+}
+
+/* ---------- Config Import / Export ---------- */
+function getConfigStorageKeys(){
+  const providerKeys = Object.keys(PROVIDER_DEFAULTS).map(id=>`provider_${id}`);
+  const localKeys = [
+    'apiKey','apiEndpoint','customModels','providerConfigs','providerDataMigrated',
+    AGENT_PROVIDER_CONNECTIONS_KEY,
+    'zhVariant','theme','messageSize','messageWeight',
+    'showFloatBall','freshChatOnPanelOpen','autoGenerateChatTitles',
+    'ttsVoice','ttsVoiceUpdatedAt','ttsRate','ttsPitch','ttsPause','ttsAutoRead',
+    'chatWithPageEnabled',
+    'prompts','defaultPrompt','selectedPrompt','promptSuggestions',
+    'webSearchProvider','braveSearchApiKey','tavilyApiKey',
+    'simpleInternetSearch','totalSearchResults','visitWebsiteInMessage','webSearchEnabled',
+    'hermesSessionId',
+    ...providerKeys
+  ];
+  const syncKeys = [
+    'activeProvider','model',
+    'zhVariant','theme','messageSize','messageWeight',
+    'showFloatBall','freshChatOnPanelOpen','autoGenerateChatTitles',
+    'ttsVoice','ttsVoiceUpdatedAt','ttsRate','ttsPitch','ttsPause','ttsAutoRead',
+    'pageCaptureMode','pageCaptureInclude','pageCaptureExclude',
+    'pageCaptureCustomInclude','pageCaptureCustomExclude','pageContextLimit',
+    'promptsVersion','promptSuggestionsVersion','deletedDefaultPrompts',
+    ...providerKeys
+  ];
+  return { localKeys:[...new Set(localKeys)], syncKeys:[...new Set(syncKeys)] };
+}
+
+function pickDefined(source, keys){
+  return keys.reduce((acc,key)=>{
+    if(source && Object.prototype.hasOwnProperty.call(source,key) && source[key] !== undefined){
+      acc[key]=source[key];
+    }
+    return acc;
+  }, {});
+}
+
+async function exportConfig(){
+  try{
+    const { localKeys, syncKeys } = getConfigStorageKeys();
+    const [local, sync] = await Promise.all([
+      chrome.storage.local.get(localKeys),
+      chrome.storage.sync.get(syncKeys)
+    ]);
+    const payload = {
+      app:'Hii~ Momo: AI Assist',
+      type:'momo-config',
+      version:VERSION,
+      exportedAt:new Date().toISOString(),
+      note:'This config may include API keys. Chat history and attachments are not included.',
+      storage:{
+        local:pickDefined(local, localKeys),
+        sync:pickDefined(sync, syncKeys)
+      }
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json' });
+    const url = URL.createObjectURL(blob);
+    const stamp = new Date().toISOString().replace(/[:.]/g,'-');
+    const a = document.createElement('a');
+    a.href=url;
+    a.download=`momo-config-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    setStatus(t('configExported'),'success');
+  }catch(err){
+    console.error('[config] export failed', err);
+    setStatus(tpl('saveFailedMsg',{msg:err?.message || String(err)}),'error');
+  }
+}
+
+function readFileAsText(file){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload=()=>resolve(String(reader.result || ''));
+    reader.onerror=()=>reject(reader.error || new Error('Read failed'));
+    reader.readAsText(file);
+  });
+}
+
+async function importConfigFromFile(e){
+  const file = e.target.files?.[0];
+  if(e.target) e.target.value='';
+  if(!file) return;
+  try{
+    const text = await readFileAsText(file);
+    const parsed = JSON.parse(text);
+    if(parsed?.type !== 'momo-config' || !parsed.storage){
+      throw new Error(t('invalidConfigFile'));
+    }
+    if(!await showConfirm(t('confirmImportConfig'))) return;
+    const { localKeys, syncKeys } = getConfigStorageKeys();
+    const localData = pickDefined(parsed.storage.local || {}, localKeys);
+    const syncData = pickDefined(parsed.storage.sync || {}, syncKeys);
+    await Promise.all([
+      Object.keys(localData).length ? chrome.storage.local.set(localData) : Promise.resolve(),
+      Object.keys(syncData).length ? chrome.storage.sync.set(syncData) : Promise.resolve()
+    ]);
+    setStatus(t('configImported'),'success');
+    setTimeout(()=>location.reload(), 500);
+  }catch(err){
+    console.error('[config] import failed', err);
+    showAlert(tpl('configImportFailed',{msg:err?.message || String(err)}));
+  }
 }
 
 /* ---------- Utilities ---------- */
@@ -2643,6 +3221,7 @@ async function applyLanguageConversion(){
     if(typeof window.__applyTranslations === 'function'){
       await window.__applyTranslations(lang === 'en' ? 'en' : lang === 'hans' ? 'hans' : 'hant');
     }
+    refreshDynamicI18n();
     updateOpenClawSessionPlaceholder();
     refreshTtsVoices?.();
   }catch(err){

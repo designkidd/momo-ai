@@ -83,7 +83,7 @@ API_SERVER_CORS_ORIGINS=*
 
 使用者說明書（HTML，由 GitHub Pages 發佈）：
 
-👉 [tomideas.github.io/momo-assist](https://tomideas.github.io/momo-assist/)
+👉 <a href="https://tomideas.github.io/momo-assist/" target="_blank" rel="noopener noreferrer">tomideas.github.io/momo-assist</a>
 
 原始檔在 [`site/`](site/)。本機預覽見 [`site/README.md`](site/README.md)。
 

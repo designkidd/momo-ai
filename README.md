@@ -83,7 +83,7 @@ No credit card needed. Get started in minutes:
 
 User guide (HTML, hosted via GitHub Pages):
 
-👉 [tomideas.github.io/momo-assist](https://tomideas.github.io/momo-assist/)
+👉 <a href="https://tomideas.github.io/momo-assist/" target="_blank" rel="noopener noreferrer">tomideas.github.io/momo-assist</a>
 
 Source files live in [`site/`](site/). See [`site/README.md`](site/README.md) for local preview.
 

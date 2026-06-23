@@ -69,10 +69,17 @@ function normalizeOpenClawGatewayUrl(url) {
 
 /* ── Provider icon mapping ── */
 const PROVIDER_ICONS = {
+  anthropic: 'assets/icons/anthropic.svg',
+  bigmodel:  'assets/icons/zhipu-color.svg',
+  chutes:    'assets/icons/chutes.png',
+  custom:    'assets/icons/custom.svg',
   qwen:     'assets/icons/qwen.svg',
   openai:   'assets/icons/openai.svg',
   deepseek: 'assets/icons/deepseek.svg',
+  huggingface: 'assets/icons/huggingface-color.svg',
   google:   'assets/icons/google.svg',
+  mistral:   'assets/icons/mistral-color.svg',
+  novita:    'assets/icons/novita-color.svg',
   ollama:   'assets/icons/ollama.svg',
   groq:       'assets/icons/groq.svg',
   hermes:     'assets/icons/hermes.svg',
@@ -81,7 +88,10 @@ const PROVIDER_ICONS = {
   nvidia:     'assets/icons/nvidia.svg',
   minimax:    'assets/icons/minimax.svg',
   moonshot:   'assets/icons/moonshot.svg',
-  openrouter: 'assets/icons/openrouter.svg'
+  openrouter: 'assets/icons/openrouter.svg',
+  together:   'assets/icons/together-color.svg',
+  vercel:     'assets/icons/vercel.svg',
+  xai:        'assets/icons/xai.svg'
 };
 
 function getProviderIconUrl(providerId) {
@@ -92,20 +102,46 @@ function getProviderIconUrl(providerId) {
 
 /* ── Provider defaults (single source of truth, alphabetical by name) ── */
 const PROVIDER_DEFAULTS = {
+  anthropic: {
+    id: 'anthropic', name: 'Anthropic (Claude)',
+    baseUrl: 'https://api.anthropic.com/v1',
+    models: ['claude-sonnet-4-5', 'claude-opus-4-1'],
+    testModel: 'claude-sonnet-4-5'
+  },
+  bigmodel: {
+    id: 'bigmodel', name: 'BigModel (Zhipu)',
+    baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    models: ['glm-4.5', 'glm-4.5-air'],
+    testModel: 'glm-4.5-air'
+  },
+  chutes: {
+    id: 'chutes', name: 'Chutes',
+    baseUrl: 'https://llm.chutes.ai/v1',
+    models: ['deepseek-ai/DeepSeek-V3.1', 'Qwen/Qwen3-235B-A22B-Instruct-2507'],
+    testModel: 'deepseek-ai/DeepSeek-V3.1'
+  },
+  custom: {
+    id: 'custom', name: 'Custom',
+    baseUrl: '',
+    models: []
+  },
   deepseek: {
     id: 'deepseek', name: 'DeepSeek',
     baseUrl: 'https://api.deepseek.com/v1',
-    models: ['deepseek-chat', 'deepseek-reasoner']
+    models: ['deepseek-chat', 'deepseek-reasoner'],
+    testModel: 'deepseek-chat'
   },
   google: {
     id: 'google', name: 'Google AI',
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
-    models: ['gemini-3.1-flash-lite-preview', 'gemini-3-flash-preview']
+    models: ['gemini-3.1-flash-lite-preview', 'gemini-3-flash-preview'],
+    testModel: 'gemini-3.1-flash-lite-preview'
   },
   groq: {
     id: 'groq', name: 'Groq',
     baseUrl: 'https://api.groq.com/openai/v1',
-    models: ['openai/gpt-oss-120b', 'meta-llama/llama-4-scout-17b-16e-instruct']
+    models: ['openai/gpt-oss-120b', 'meta-llama/llama-4-scout-17b-16e-instruct'],
+    testModel: 'openai/gpt-oss-120b'
   },
   hermes: {
     id: 'hermes', name: 'Hermes',
@@ -120,20 +156,41 @@ const PROVIDER_DEFAULTS = {
     baseUrl: 'http://localhost:1234/v1',
     models: []
   },
+  huggingface: {
+    id: 'huggingface', name: 'Hugging Face',
+    baseUrl: 'https://router.huggingface.co/v1',
+    models: ['openai/gpt-oss-120b', 'Qwen/Qwen3-Coder-480B-A35B-Instruct'],
+    testModel: 'openai/gpt-oss-120b'
+  },
   minimax: {
     id: 'minimax', name: 'MiniMax',
     baseUrl: 'https://api.minimaxi.chat/v1',
-    models: ['MiniMax-Text-01', 'abab6.5s-chat']
+    models: ['MiniMax-Text-01', 'abab6.5s-chat'],
+    testModel: 'MiniMax-Text-01'
+  },
+  mistral: {
+    id: 'mistral', name: 'Mistral',
+    baseUrl: 'https://api.mistral.ai/v1',
+    models: ['mistral-large-latest', 'mistral-small-latest'],
+    testModel: 'mistral-small-latest'
   },
   moonshot: {
     id: 'moonshot', name: 'Moonshot',
     baseUrl: 'https://api.moonshot.cn/v1',
-    models: ['kimi-k2.5', 'kimi-k2']
+    models: ['kimi-k2.5', 'kimi-k2'],
+    testModel: 'kimi-k2'
+  },
+  novita: {
+    id: 'novita', name: 'Novita AI',
+    baseUrl: 'https://api.novita.ai/v3/openai',
+    models: ['deepseek/deepseek-v3.1', 'qwen/qwen3-235b-a22b-instruct-2507'],
+    testModel: 'deepseek/deepseek-v3.1'
   },
   nvidia: {
     id: 'nvidia', name: 'NVIDIA',
     baseUrl: 'https://integrate.api.nvidia.com/v1',
-    models: ['nvidia/nemotron-3-super-120b-a12b', 'nvidia/nemotron-3-nano-30b-a3b']
+    models: ['nvidia/nemotron-3-super-120b-a12b', 'nvidia/nemotron-3-nano-30b-a3b'],
+    testModel: 'nvidia/nemotron-3-nano-30b-a3b'
   },
   ollama: {
     id: 'ollama', name: 'Ollama',
@@ -150,19 +207,40 @@ const PROVIDER_DEFAULTS = {
   openai: {
     id: 'openai', name: 'OpenAI',
     baseUrl: 'https://api.openai.com/v1',
-    models: ['gpt-5.4-mini', 'gpt-5.4']
+    models: ['gpt-5.4-mini', 'gpt-5.4'],
+    testModel: 'gpt-5.4-mini'
   },
   openrouter: {
     id: 'openrouter', name: 'OpenRouter',
     baseUrl: 'https://openrouter.ai/api/v1',
-    models: ['anthropic/claude-sonnet-4.6', 'deepseek/deepseek-chat']
+    models: ['anthropic/claude-sonnet-4.6', 'deepseek/deepseek-chat'],
+    testModel: 'deepseek/deepseek-chat'
   },
   qwen: {
     id: 'qwen', name: 'Qwen',
     baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     models: ['qwen3.5-plus', 'qwen3.5-flash'],
+    testModel: 'qwen3.5-flash',
     supportsThinking: true,
     defaultEnableThinking: false
+  },
+  together: {
+    id: 'together', name: 'Together AI',
+    baseUrl: 'https://api.together.xyz/v1',
+    models: ['meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8', 'Qwen/Qwen3-235B-A22B-fp8-tput'],
+    testModel: 'Qwen/Qwen3-235B-A22B-fp8-tput'
+  },
+  vercel: {
+    id: 'vercel', name: 'Vercel AI Gateway',
+    baseUrl: 'https://ai-gateway.vercel.sh/v1',
+    models: ['openai/gpt-5.4-mini', 'anthropic/claude-sonnet-4-5'],
+    testModel: 'openai/gpt-5.4-mini'
+  },
+  xai: {
+    id: 'xai', name: 'xAI',
+    baseUrl: 'https://api.x.ai/v1',
+    models: ['grok-4', 'grok-4-fast'],
+    testModel: 'grok-4-fast'
   }
 };
 

@@ -77,11 +77,18 @@ Chrome **Manifest V3** 擴充功能：側邊欄 AI 聊天、多供應商 API、�
 
 - 聊天 session、串流渲染、模型選擇、頁面引用、圖片上傳
 - 呼叫 API（含 OpenClaw 專用 `streamOpenClawChat`）
+- **Prompt Suggestions**：歡迎畫面快捷提示；輸入框有文字時點 suggestion 會送出「指令 + Content: + 使用者文字」
+- **System prompt selector**：僅在存在 `visible:true` 的 prompt 時顯示；預設 **MoMo** 為 active
+- **TTS**：`buildTtsPlaybackParts()` 前處理（語義符號轉自然文字、標點切段與停頓、不送標點進引擎）
+- **自動捲動**：`scheduleLayoutAutoFollow()`、`observeMessageImageLayout()` 處理圖片載入後高度變化
 - **檔案很大**：改功能前先 `grep` 定位，避免整檔重寫
 
 ### options.js 職責
 
-- Provider 設定、連線測試、擷取模式、TTS、OpenClaw Setup Guide
+- Provider 設定、連線測試、擷取模式、TTS（含 Preview，邏輯須與 sidepanel 同步）、OpenClaw Setup Guide
+- System Prompts / Prompt Suggestions 管理與版本遷移
+- **Config** 匯入 / 匯出 JSON（設定備份，不含聊天記錄與圖片附件）
+- `refreshDynamicI18n()`：語言切換時刷新 JS 動態產生的 badge / 文案
 - 自訂 `<select>`（`.csel-*`）取代原生 select（深色模式）
 
 ---
@@ -90,7 +97,8 @@ Chrome **Manifest V3** 擴充功能：側邊欄 AI 聊天、多供應商 API、�
 
 | 資料 | 檔案 |
 |------|------|
-| 預設系統提示詞 | `sider/prompt-defaults.js`（改內容時遞增 `PROMPTS_VERSION`） |
+| 預設系統提示詞 | `sider/prompt-defaults.js`（改內容時遞增 `PROMPTS_VERSION`；目前僅 **MoMo**，`visible:true`） |
+| 預設 Prompt Suggestions | `sider/prompt-defaults.js`（改內容時遞增 `PROMPT_SUGGESTIONS_VERSION`；目前 5 項英文 title） |
 | AI 供應商預設 URL/模型 | `sider/js/utils.js` → `PROVIDER_DEFAULTS` |
 | 擷取模式預設 | `sider/js/utils.js` → `CAPTURE_PRESETS` |
 | OpenClaw 協定版本 | `sider/js/utils.js` → `OPENCLAW_PROTOCOL_MIN/MAX`（目前 3–4） |
@@ -189,7 +197,9 @@ Session 結構含 `messages`；頁面引用綁在 **user message** 的 `_pageCon
 | 頁面擷取邏輯 | `sidepanel.js`（capture）、`js/utils.js`（presets） |
 | 聯網搜尋 | `js/web-search.js` |
 | 翻譯文案 | `assets/i18n/*.json` |
-| 預設人格提示詞 | `prompt-defaults.js` |
+| 預設人格提示詞 / Suggestions | `prompt-defaults.js`、`options.js`、`sidepanel.js` |
+| TTS 朗讀前處理 | `sidepanel.js`、`options.js`（Preview 須同步） |
+| Config 備份匯入匯出 | `options.html`、`options.js`、i18n |
 | 浮球 | `content-floatball.js`、`floatball-frame.*` |
 
 ---
@@ -379,6 +389,49 @@ URL/協定 → `utils.js`；WebSocket → `openclaw.js`；Origin/DNR → `backgr
 - 多檔修改時先列 3–5 步計畫
 - 找不到確定依據時明說，不要編造
 - 完成後簡短摘要：改了什麼、版本、驗證、未做事項
+
+---
+
+## 24. 產品行為速查（2.22+）
+
+### System Prompts
+
+- 內建預設**只保留 MoMo**（`id:'1'`，`visible:true`）；舊預設 Assistant / Copywriter / Email Pro / Translator 已移除（`REMOVED_DEFAULT_PROMPT_IDS`）
+- 升級時：`PROMPTS_VERSION` 變更會觸發遷移；隱藏的預設 MoMo 會恢復為 active
+- 側邊欄 prompt dropdown 僅在至少一個 `visible:true` prompt 時顯示
+- 使用者自訂 prompts 不會被預設遷移刪除
+
+### Prompt Suggestions
+
+- 預設 5 項（title 皆英文）：`Translate`、`Summarize`、`Improve writing`、`Continue writing`、`Outline`
+- 不再為預設 suggestion title 套用繁中 / 簡中翻譯；所有語系顯示使用者設定的 title
+- 升級時：`PROMPT_SUGGESTIONS_VERSION` 變更會自動補齊缺少的預設項，不覆蓋自訂項
+- 點擊行為：輸入框**空**→ 直接送出 suggestion prompt；輸入框**有文字**→ 送出「suggestion prompt + `\n\nContent:\n` + 輸入文字」
+- 若同時有 pending 頁面引用，送出前須等待擷取完成
+
+### Config（設定備份）
+
+- 設定頁左側導航有 **Config** 入口（i18n：`configNav` 等，繁中「設定備份」）
+- 匯出 JSON 含 provider、models、prompts、suggestions、TTS、page capture、web search、外觀與行為；**不含**聊天記錄與 IndexedDB 圖片附件
+- 匯出檔可能含 API keys，勿公開分享
+
+### TTS
+
+- 前處理：移除 thinking 區塊、HTML / Markdown、emoji；依語言偏好繁簡轉換
+- **語義符號**（`& % + = × < > @ $ € £ ¥` 等）先轉自然文字（中文語境用中文，否則英文），例：`Tom & Jerry` → `Tom and Jerry`
+- **其他標點 / 裝飾符號**不送進語音引擎，只用於切段與 **Reading rhythm** 停頓計算
+- 設定頁 Preview 與側邊欄正式朗讀須共用同一套前處理邏輯
+- 修改 TTS 時手動測：Preview、手動 🔊、自動朗讀、含 `&` / `%` 的句子、段落停頓感
+
+### 自動捲動
+
+- 使用者手動上捲時暫停 auto-follow；點 ⬇ 恢復
+- 訊息內圖片（含 Markdown 圖、貼圖回覆）`load` 後若處於 auto-follow，會補捲到底部
+
+### 動態 UI 語系
+
+- 靜態 HTML 用 `data-i18n*`；JS 動態產生的文案（如 default badge）須在 `refreshDynamicI18n()` 或等效流程中刷新
+- 改 i18n 時測：切換 hant / hans / en 後，設定頁 System Prompts 列表 badge 是否正確
 
 ---
 
